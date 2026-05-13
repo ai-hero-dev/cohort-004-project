@@ -26,7 +26,15 @@ import {
   getBestAttempt,
 } from "~/services/quizService";
 import { computeResult } from "~/services/quizScoringService";
-import { LessonProgressStatus } from "~/db/schema";
+import {
+  createComment,
+  listCommentsForLesson,
+  softDeleteComment,
+} from "~/services/commentService";
+import type { CommentWithAuthor } from "~/services/commentService";
+import { COMMENT_MAX_LENGTH } from "~/services/commentConstants";
+import { getUserById } from "~/services/userService";
+import { LessonProgressStatus, UserRole } from "~/db/schema";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import {
@@ -191,6 +199,16 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     pppPurchaseCountry = pppResult.purchaseCountry;
   }
 
+  // Discussion: enrolled students, the course instructor, or any admin can read/post.
+  const currentUserRecord = currentUserId ? getUserById(currentUserId) : null;
+  const isCourseInstructor =
+    currentUserId !== null && course.instructorId === currentUserId;
+  const isAdmin = currentUserRecord?.role === UserRole.Admin;
+  const canDiscuss = enrolled || isCourseInstructor || isAdmin;
+  const comments: CommentWithAuthor[] = canDiscuss
+    ? listCommentsForLesson(lessonId)
+    : [];
+
   // Render lesson content from Markdown to HTML server-side
   const contentHtml = lesson.content
     ? await renderMarkdown(lesson.content)
@@ -281,6 +299,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    canDiscuss,
+    comments,
+    courseInstructorId: course.instructorId,
+    currentUserRole: currentUserRecord?.role ?? null,
   };
 }
 
@@ -329,6 +351,44 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
 
     return { quizResult: result };
+  }
+
+  if (intent === "create-comment") {
+    // Authorize: enrolled OR course instructor OR admin
+    const user = getUserById(currentUserId);
+    const enrolled = isUserEnrolled(currentUserId, course.id);
+    const isInstructor = course.instructorId === currentUserId;
+    const isAdmin = user?.role === UserRole.Admin;
+    if (!enrolled && !isInstructor && !isAdmin) {
+      throw data("Not allowed to comment on this lesson", { status: 403 });
+    }
+
+    const content = String(formData.get("content") ?? "");
+    try {
+      createComment(lessonId, currentUserId, content);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create comment";
+      return { commentError: message };
+    }
+    return { success: true };
+  }
+
+  if (intent === "delete-comment") {
+    const commentId = Number(formData.get("commentId"));
+    if (isNaN(commentId)) {
+      throw data("Invalid comment ID", { status: 400 });
+    }
+    const user = getUserById(currentUserId);
+    const result = softDeleteComment(
+      commentId,
+      currentUserId,
+      user?.role ?? UserRole.Student
+    );
+    if (!result) {
+      throw data("Not allowed to delete this comment", { status: 403 });
+    }
+    return { success: true };
   }
 
   throw data("Invalid action", { status: 400 });
@@ -382,6 +442,10 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    canDiscuss,
+    comments,
+    courseInstructorId,
+    currentUserRole,
   } = loaderData;
   const [autoplay, toggleAutoplay] = useAutoplay();
   const fetcher = useFetcher({ key: `mark-complete-${lesson.id}` });
@@ -590,6 +654,17 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
                 </fetcher.Form>
               )}
             </div>
+          )}
+
+          {/* Discussion */}
+          {canDiscuss && currentUserId && (
+            <DiscussionSection
+              lessonId={lesson.id}
+              comments={comments}
+              currentUserId={currentUserId}
+              currentUserRole={currentUserRole}
+              courseInstructorId={courseInstructorId}
+            />
           )}
 
           {/* Prev/Next Navigation */}
@@ -1011,6 +1086,219 @@ function QuizSection({
         </quizFetcher.Form>
       </CardContent>
     </Card>
+  );
+}
+
+// ─── Discussion ───
+
+const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
+
+function renderCommentContent(text: string) {
+  // Plain text; auto-linkify URLs. Split-and-map keeps React responsible for escaping,
+  // avoiding dangerouslySetInnerHTML.
+  const parts = text.split(URL_RE);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline underline-offset-2 break-all"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function formatRelativeTime(iso: string) {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffSec = Math.max(1, Math.floor((now - then) / 1000));
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function DiscussionSection({
+  lessonId,
+  comments,
+  currentUserId,
+  currentUserRole,
+  courseInstructorId,
+}: {
+  lessonId: number;
+  comments: CommentWithAuthor[];
+  currentUserId: number;
+  currentUserRole: UserRole | null;
+  courseInstructorId: number;
+}) {
+  const createFetcher = useFetcher({ key: `comment-create-${lessonId}` });
+  const [draft, setDraft] = useState("");
+  const isSubmitting =
+    createFetcher.state !== "idle" &&
+    createFetcher.formData?.get("intent") === "create-comment";
+  const submitError =
+    typeof createFetcher.data === "object" &&
+    createFetcher.data !== null &&
+    "commentError" in createFetcher.data
+      ? (createFetcher.data as { commentError: string }).commentError
+      : null;
+
+  // Clear textarea after successful submit
+  useEffect(() => {
+    if (
+      createFetcher.state === "idle" &&
+      createFetcher.data &&
+      "success" in createFetcher.data &&
+      createFetcher.data.success
+    ) {
+      setDraft("");
+    }
+  }, [createFetcher.state, createFetcher.data]);
+
+  const remaining = COMMENT_MAX_LENGTH - draft.length;
+  const showCounter = remaining <= 200;
+  const isAdmin = currentUserRole === UserRole.Admin;
+
+  return (
+    <section className="mb-8 border-t pt-8">
+      <h2 className="mb-4 text-xl font-semibold">Discussion</h2>
+
+      <createFetcher.Form method="post" className="mb-6">
+        <input type="hidden" name="intent" value="create-comment" />
+        <textarea
+          name="content"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          maxLength={COMMENT_MAX_LENGTH}
+          rows={3}
+          placeholder="Ask a question or share a thought..."
+          className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        <div className="mt-2 flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            {showCounter && (
+              <span className={remaining < 0 ? "text-destructive" : ""}>
+                {remaining} characters remaining
+              </span>
+            )}
+            {submitError && (
+              <span className="text-destructive">{submitError}</span>
+            )}
+          </div>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isSubmitting || draft.trim().length === 0}
+          >
+            {isSubmitting ? "Posting..." : "Post Comment"}
+          </Button>
+        </div>
+      </createFetcher.Form>
+
+      {comments.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No comments yet. Be the first to start the discussion.
+        </p>
+      ) : (
+        <ul className="space-y-4">
+          {comments.map((c) => (
+            <CommentItem
+              key={c.id}
+              comment={c}
+              lessonId={lessonId}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+              isCourseInstructor={courseInstructorId === currentUserId}
+              isInstructorAuthor={c.userId === courseInstructorId}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function CommentItem({
+  comment,
+  lessonId,
+  currentUserId,
+  isAdmin,
+  isCourseInstructor,
+  isInstructorAuthor,
+}: {
+  comment: CommentWithAuthor;
+  lessonId: number;
+  currentUserId: number;
+  isAdmin: boolean;
+  isCourseInstructor: boolean;
+  isInstructorAuthor: boolean;
+}) {
+  const deleteFetcher = useFetcher({
+    key: `comment-delete-${comment.id}`,
+  });
+  const isDeleting =
+    deleteFetcher.state !== "idle" &&
+    deleteFetcher.formData?.get("intent") === "delete-comment";
+
+  const isDeleted = comment.deletedAt !== null;
+  const canDelete =
+    !isDeleted &&
+    (comment.userId === currentUserId || isCourseInstructor || isAdmin);
+
+  return (
+    <li
+      className={cn(
+        "rounded-lg border p-4",
+        isInstructorAuthor && !isDeleted && "bg-primary/5 border-primary/20"
+      )}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-medium">{comment.authorName}</span>
+          {isInstructorAuthor && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              Instructor
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {formatRelativeTime(comment.createdAt)}
+          </span>
+        </div>
+        {canDelete && (
+          <deleteFetcher.Form method="post">
+            <input type="hidden" name="intent" value="delete-comment" />
+            <input type="hidden" name="commentId" value={comment.id} />
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              disabled={isDeleting}
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </deleteFetcher.Form>
+        )}
+      </div>
+      <div className="text-sm whitespace-pre-wrap break-words">
+        {isDeleted ? (
+          <span className="italic text-muted-foreground">[deleted]</span>
+        ) : (
+          renderCommentContent(comment.content)
+        )}
+      </div>
+    </li>
   );
 }
 
