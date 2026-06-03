@@ -42,6 +42,13 @@ import { formatDuration, formatPrice } from "~/lib/utils";
 import { renderMarkdown } from "~/lib/markdown.server";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice, getCountryTierInfo } from "~/lib/ppp";
+import {
+  getCourseRating,
+  getUserCourseRating,
+  upsertCourseReview,
+} from "~/services/reviewService";
+import { StarDisplay, StarInput } from "~/components/star-rating";
+import { z } from "zod";
 
 export function meta({ data: loaderData }: Route.MetaArgs) {
   const title = loaderData?.course?.title ?? "Course";
@@ -102,6 +109,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : courseWithDetails.price;
   const tierInfo = getCountryTierInfo(country);
 
+  const { averageRating, count: reviewCount } = getCourseRating(course.id);
+  const userRating =
+    currentUserId ? getUserCourseRating(currentUserId, course.id) : null;
+
   return {
     course: courseWithDetails,
     salesCopyHtml,
@@ -113,10 +124,46 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating,
+    reviewCount,
+    userRating,
   };
 }
 
-// No action — enrollment is handled via the purchase confirmation page
+const ratingSchema = z.object({
+  rating: z.coerce.number().int().min(1).max(5),
+  courseId: z.coerce.number().int(),
+});
+
+export async function action({ request }: Route.ActionArgs) {
+  const currentUserId = await getCurrentUserId(request);
+  if (!currentUserId) {
+    throw data("Sign in required", { status: 401 });
+  }
+
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "rate") {
+    const parsed = ratingSchema.safeParse({
+      rating: formData.get("rating"),
+      courseId: formData.get("courseId"),
+    });
+    if (!parsed.success) {
+      throw data("Invalid rating", { status: 400 });
+    }
+
+    const enrolled = isUserEnrolled(currentUserId, parsed.data.courseId);
+    if (!enrolled) {
+      throw data("Must be enrolled to rate", { status: 403 });
+    }
+
+    upsertCourseReview(currentUserId, parsed.data.courseId, parsed.data.rating);
+    return { ok: true };
+  }
+
+  throw data("Unknown intent", { status: 400 });
+}
 
 export function HydrateFallback() {
   return (
@@ -181,6 +228,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating,
+    reviewCount,
+    userRating,
   } = loaderData;
   const isInstructor = currentUserId === course.instructorId;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -301,7 +351,7 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
         <p className="mb-4 text-lg text-muted-foreground">
           {course.description}
         </p>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <UserAvatar
               name={course.instructorName}
@@ -320,6 +370,11 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
               {formatDuration(totalDuration, true, false, false)} total
             </span>
           )}
+          <StarDisplay
+            averageRating={averageRating}
+            count={reviewCount}
+            size="md"
+          />
         </div>
       </div>
 
@@ -413,6 +468,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
                       Buy More Seats
                     </Button>
                   </Link>
+                  <div className="border-t pt-4">
+                    <StarInput courseId={course.id} currentRating={userRating} />
+                  </div>
                 </>
               ) : (
                 enrollButton
