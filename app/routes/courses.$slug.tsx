@@ -13,8 +13,14 @@ import {
   getLessonProgressForCourse,
   getNextIncompleteLesson,
 } from "~/services/progressService";
+import {
+  getAverageRating,
+  getUserRating,
+  submitRating,
+} from "~/services/ratingService";
 import { getCurrentUserId } from "~/lib/session";
 import { LessonProgressStatus } from "~/db/schema";
+import { StarDisplay, RatingInput } from "~/components/star-rating";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -102,6 +108,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : courseWithDetails.price;
   const tierInfo = getCountryTierInfo(country);
 
+  const ratingData = getAverageRating(course.id);
+  const userRating = currentUserId
+    ? getUserRating(currentUserId, course.id)
+    : null;
+
   return {
     course: courseWithDetails,
     salesCopyHtml,
@@ -113,10 +124,39 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating: ratingData?.average ?? null,
+    ratingCount: ratingData?.count ?? 0,
+    userRating: userRating?.rating ?? null,
   };
 }
 
-// No action — enrollment is handled via the purchase confirmation page
+export async function action({ params, request }: Route.ActionArgs) {
+  const currentUserId = await getCurrentUserId(request);
+  if (!currentUserId) {
+    throw data("Unauthorized", { status: 401 });
+  }
+
+  const course = getCourseBySlug(params.slug);
+  if (!course) throw data("Course not found", { status: 404 });
+
+  const enrolled = isUserEnrolled(currentUserId, course.id);
+  if (!enrolled) {
+    throw data("Must be enrolled to rate", { status: 403 });
+  }
+
+  const formData = await request.formData();
+  const _action = formData.get("_action");
+
+  if (_action === "rate") {
+    const ratingValue = Number(formData.get("rating"));
+    if (!Number.isInteger(ratingValue) || ratingValue < 1 || ratingValue > 5) {
+      throw data("Invalid rating", { status: 400 });
+    }
+    submitRating(currentUserId, course.id, ratingValue);
+  }
+
+  return null;
+}
 
 export function HydrateFallback() {
   return (
@@ -181,6 +221,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating,
+    ratingCount,
+    userRating,
   } = loaderData;
   const isInstructor = currentUserId === course.instructorId;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -301,7 +344,7 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
         <p className="mb-4 text-lg text-muted-foreground">
           {course.description}
         </p>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <UserAvatar
               name={course.instructorName}
@@ -319,6 +362,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
               <Clock className="size-4" />
               {formatDuration(totalDuration, true, false, false)} total
             </span>
+          )}
+          {averageRating !== null && ratingCount > 0 && (
+            <StarDisplay average={averageRating} count={ratingCount} />
           )}
         </div>
       </div>
@@ -413,6 +459,12 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
                       Buy More Seats
                     </Button>
                   </Link>
+                  <div className="border-t pt-3">
+                    <RatingInput
+                      courseId={course.id}
+                      currentRating={userRating}
+                    />
+                  </div>
                 </>
               ) : (
                 enrollButton
