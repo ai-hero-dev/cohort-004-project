@@ -36,6 +36,13 @@
       "when": 1778664849919,
       "tag": "0004_nappy_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1771933468052,
+      "tag": "0005_kind_archangel",
+      "breakpoints": true
     }
   ]
 }
