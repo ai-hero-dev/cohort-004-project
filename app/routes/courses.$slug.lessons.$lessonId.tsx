@@ -26,6 +26,12 @@ import {
   getBestAttempt,
 } from "~/services/quizService";
 import { computeResult } from "~/services/quizScoringService";
+import {
+  getCommentsForLesson,
+  createComment,
+  deleteComment,
+  getCommentById,
+} from "~/services/commentService";
 import { LessonProgressStatus } from "~/db/schema";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
@@ -49,6 +55,7 @@ import {
 import { cn, formatDuration } from "~/lib/utils";
 import { renderMarkdown } from "~/lib/markdown.server";
 import { YouTubePlayer } from "~/components/youtube-player";
+import { LessonComments } from "~/components/lesson-comments";
 import { data, isRouteErrorResponse } from "react-router";
 import { z } from "zod";
 import { resolveCountry } from "~/lib/country.server";
@@ -248,6 +255,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     }
   }
 
+  const isInstructor = currentUserId === course.instructorId;
+  const canViewComments = enrolled || isInstructor;
+
+  const comments = canViewComments
+    ? await Promise.all(
+        getCommentsForLesson(lessonId).map(async (c) => ({
+          ...c,
+          bodyHtml: await renderMarkdown(c.body),
+        }))
+      )
+    : [];
+
   return {
     course: {
       id: courseWithDetails.id,
@@ -281,6 +300,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    comments,
+    isInstructor,
   };
 }
 
@@ -302,6 +323,37 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   if (intent === "mark-complete") {
     markLessonComplete(currentUserId, lessonId);
+    return { success: true };
+  }
+
+  if (intent === "add-comment") {
+    const enrolled = isUserEnrolled(currentUserId, course.id);
+    const isInstructor = course.instructorId === currentUserId;
+    if (!enrolled && !isInstructor) {
+      throw data("Not authorized to comment", { status: 403 });
+    }
+
+    const body = String(formData.get("body") ?? "").trim();
+    if (!body) throw data("Comment body is required", { status: 400 });
+    if (body.length > 5000) throw data("Comment too long", { status: 400 });
+
+    createComment(lessonId, currentUserId, body);
+    return { success: true };
+  }
+
+  if (intent === "delete-comment") {
+    const commentId = Number(formData.get("commentId"));
+    if (isNaN(commentId)) throw data("Invalid comment ID", { status: 400 });
+
+    const comment = getCommentById(commentId);
+    if (!comment) throw data("Comment not found", { status: 404 });
+
+    const isInstructor = course.instructorId === currentUserId;
+    if (comment.userId !== currentUserId && !isInstructor) {
+      throw data("Not authorized to delete this comment", { status: 403 });
+    }
+
+    deleteComment(commentId);
     return { success: true };
   }
 
@@ -382,6 +434,8 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    comments,
+    isInstructor,
   } = loaderData;
   const [autoplay, toggleAutoplay] = useAutoplay();
   const fetcher = useFetcher({ key: `mark-complete-${lesson.id}` });
@@ -533,6 +587,16 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
                 No content has been added to this lesson yet.
               </CardContent>
             </Card>
+          )}
+
+          {/* Comments */}
+          {(enrolled || isInstructor) && (
+            <LessonComments
+              comments={comments}
+              currentUserId={currentUserId}
+              isInstructor={isInstructor}
+              lessonId={lesson.id}
+            />
           )}
 
           {/* Quiz Section */}
