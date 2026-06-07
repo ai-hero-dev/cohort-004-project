@@ -17,3 +17,6 @@
 # JetBrains
 /.idea/
 
+# Playwright MCP artifacts
+/.playwright-mcp/
+
