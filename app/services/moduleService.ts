@@ -4,7 +4,6 @@ import { modules, lessons } from "~/db/schema";
 
 // ─── Module Service ───
 // Handles module CRUD and reordering within courses.
-// Uses positional parameters (project convention).
 
 export function getModuleById(id: number) {
   return db.select().from(modules).where(eq(modules.id, id)).get();
@@ -79,14 +78,17 @@ export function getModuleCount(courseId: number) {
 
 // ─── Reordering ───
 
-export function moveModuleToPosition(moduleId: number, newPosition: number) {
-  const mod = getModuleById(moduleId);
+export function moveModuleToPosition(opts: {
+  moduleId: number;
+  newPosition: number;
+}) {
+  const mod = getModuleById(opts.moduleId);
   if (!mod) return null;
 
   const oldPosition = mod.position;
-  if (oldPosition === newPosition) return mod;
+  if (oldPosition === opts.newPosition) return mod;
 
-  if (newPosition > oldPosition) {
+  if (opts.newPosition > oldPosition) {
     // Moving down: shift items between old+1 and new up by 1
     db.update(modules)
       .set({ position: sql`${modules.position} - 1` })
@@ -94,7 +96,7 @@ export function moveModuleToPosition(moduleId: number, newPosition: number) {
         and(
           eq(modules.courseId, mod.courseId),
           gt(modules.position, oldPosition),
-          lte(modules.position, newPosition)
+          lte(modules.position, opts.newPosition)
         )
       )
       .run();
@@ -105,7 +107,7 @@ export function moveModuleToPosition(moduleId: number, newPosition: number) {
       .where(
         and(
           eq(modules.courseId, mod.courseId),
-          gte(modules.position, newPosition),
+          gte(modules.position, opts.newPosition),
           lt(modules.position, oldPosition)
         )
       )
@@ -114,25 +116,28 @@ export function moveModuleToPosition(moduleId: number, newPosition: number) {
 
   return db
     .update(modules)
-    .set({ position: newPosition })
-    .where(eq(modules.id, moduleId))
+    .set({ position: opts.newPosition })
+    .where(eq(modules.id, opts.moduleId))
     .returning()
     .get();
 }
 
-export function swapModulePositions(moduleIdA: number, moduleIdB: number) {
-  const modA = getModuleById(moduleIdA);
-  const modB = getModuleById(moduleIdB);
+export function swapModulePositions(opts: {
+  moduleIdA: number;
+  moduleIdB: number;
+}) {
+  const modA = getModuleById(opts.moduleIdA);
+  const modB = getModuleById(opts.moduleIdB);
   if (!modA || !modB) return null;
 
   db.update(modules)
     .set({ position: modB.position })
-    .where(eq(modules.id, moduleIdA))
+    .where(eq(modules.id, opts.moduleIdA))
     .run();
 
   db.update(modules)
     .set({ position: modA.position })
-    .where(eq(modules.id, moduleIdB))
+    .where(eq(modules.id, opts.moduleIdB))
     .run();
 
   return {

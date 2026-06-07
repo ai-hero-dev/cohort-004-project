@@ -14,27 +14,27 @@ export function formatPrice(cents: number | null | undefined): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export function formatDuration(
-  minutes: number,
-  showHours: boolean,
-  showSeconds: boolean,
-  padZeros: boolean
-): string {
-  if (minutes <= 0) return padZeros ? "00m" : "0m";
+export function formatDuration(opts: {
+  minutes: number;
+  showHours: boolean;
+  showSeconds: boolean;
+  padZeros: boolean;
+}): string {
+  if (opts.minutes <= 0) return opts.padZeros ? "00m" : "0m";
 
-  if (showHours && minutes >= 60) {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    const hStr = padZeros ? String(h).padStart(2, "0") : String(h);
-    const mStr = padZeros ? String(m).padStart(2, "0") : String(m);
-    if (showSeconds) {
+  if (opts.showHours && opts.minutes >= 60) {
+    const h = Math.floor(opts.minutes / 60);
+    const m = opts.minutes % 60;
+    const hStr = opts.padZeros ? String(h).padStart(2, "0") : String(h);
+    const mStr = opts.padZeros ? String(m).padStart(2, "0") : String(m);
+    if (opts.showSeconds) {
       return `${hStr}h ${mStr}m 00s`;
     }
     return m > 0 ? `${hStr}h ${mStr}m` : `${hStr}h`;
   }
 
-  const mStr = padZeros ? String(minutes).padStart(2, "0") : String(minutes);
-  if (showSeconds) {
+  const mStr = opts.padZeros ? String(opts.minutes).padStart(2, "0") : String(opts.minutes);
+  if (opts.showSeconds) {
     return `${mStr}m 00s`;
   }
   return `${mStr}m`;

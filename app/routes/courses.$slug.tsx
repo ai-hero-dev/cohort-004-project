@@ -83,20 +83,20 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   let bookmarkedLessonIds: number[] = [];
 
   if (currentUserId) {
-    enrolled = isUserEnrolled(currentUserId, course.id);
+    enrolled = isUserEnrolled({ userId: currentUserId, courseId: course.id });
 
     if (enrolled) {
-      progress = calculateProgress(currentUserId, course.id, false, false);
+      progress = calculateProgress({ userId: currentUserId, courseId: course.id, includeQuizzes: false, weightByDuration: false });
 
-      const progressRecords = getLessonProgressForCourse(
-        currentUserId,
-        course.id
-      );
+      const progressRecords = getLessonProgressForCourse({
+        userId: currentUserId,
+        courseId: course.id,
+      });
       for (const record of progressRecords) {
         lessonProgressMap[record.lessonId] = record.status;
       }
 
-      const nextLesson = getNextIncompleteLesson(currentUserId, course.id);
+      const nextLesson = getNextIncompleteLesson({ userId: currentUserId, courseId: course.id });
       nextLessonId = nextLesson?.id ?? null;
 
       bookmarkedLessonIds = getBookmarkedLessonIds({
@@ -119,7 +119,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const { averageRating, count: reviewCount } = getCourseRating(course.id);
   const userRating =
-    currentUserId ? getUserCourseRating(currentUserId, course.id) : null;
+    currentUserId ? getUserCourseRating({ userId: currentUserId, courseId: course.id }) : null;
 
   return {
     course: courseWithDetails,
@@ -162,12 +162,12 @@ export async function action({ request }: Route.ActionArgs) {
       throw data("Invalid rating", { status: 400 });
     }
 
-    const enrolled = isUserEnrolled(currentUserId, parsed.data.courseId);
+    const enrolled = isUserEnrolled({ userId: currentUserId, courseId: parsed.data.courseId });
     if (!enrolled) {
       throw data("Must be enrolled to rate", { status: 403 });
     }
 
-    upsertCourseReview(currentUserId, parsed.data.courseId, parsed.data.rating);
+    upsertCourseReview({ userId: currentUserId, courseId: parsed.data.courseId, rating: parsed.data.rating });
     return { ok: true };
   }
 
@@ -377,7 +377,7 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
           {totalDuration > 0 && (
             <span className="flex items-center gap-1">
               <Clock className="size-4" />
-              {formatDuration(totalDuration, true, false, false)} total
+              {formatDuration({ minutes: totalDuration, showHours: true, showSeconds: false, padZeros: false })} total
             </span>
           )}
           <StarDisplay
@@ -494,7 +494,7 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
                 <div className="flex items-center gap-2">
                   <Clock className="size-4" />
                   <span>
-                    {formatDuration(totalDuration, true, false, false)} total
+                    {formatDuration({ minutes: totalDuration, showHours: true, showSeconds: false, padZeros: false })} total
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -599,12 +599,7 @@ function CourseContent({
                             {lesson.durationMinutes && (
                               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="size-3" />
-                                {formatDuration(
-                                  lesson.durationMinutes,
-                                  true,
-                                  false,
-                                  false
-                                )}
+                                {formatDuration({ minutes: lesson.durationMinutes, showHours: true, showSeconds: false, padZeros: false })}
                               </span>
                             )}
                           </Link>
@@ -630,12 +625,7 @@ function CourseContent({
                             {lesson.durationMinutes && (
                               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="size-3" />
-                                {formatDuration(
-                                  lesson.durationMinutes,
-                                  true,
-                                  false,
-                                  false
-                                )}
+                                {formatDuration({ minutes: lesson.durationMinutes, showHours: true, showSeconds: false, padZeros: false })}
                               </span>
                             )}
                             {lessonBookmarked && (
@@ -649,12 +639,7 @@ function CourseContent({
                             {lesson.durationMinutes && (
                               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="size-3" />
-                                {formatDuration(
-                                  lesson.durationMinutes,
-                                  true,
-                                  false,
-                                  false
-                                )}
+                                {formatDuration({ minutes: lesson.durationMinutes, showHours: true, showSeconds: false, padZeros: false })}
                               </span>
                             )}
                           </div>

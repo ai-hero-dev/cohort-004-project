@@ -4,7 +4,6 @@ import { users, type UserRole } from "~/db/schema";
 
 // ─── User Service ───
 // Handles user CRUD operations and role management.
-// Uses positional parameters (project convention).
 
 export function getAllUsers() {
   return db.select().from(users).all();
@@ -22,29 +21,29 @@ export function getUsersByRole(role: UserRole) {
   return db.select().from(users).where(eq(users.role, role)).all();
 }
 
-export function createUser(
-  name: string,
-  email: string,
-  role: UserRole,
-  avatarUrl: string | null
-) {
+export function createUser(opts: {
+  name: string;
+  email: string;
+  role: UserRole;
+  avatarUrl: string | null;
+}) {
   return db
     .insert(users)
-    .values({ name, email, role, avatarUrl })
+    .values({ name: opts.name, email: opts.email, role: opts.role, avatarUrl: opts.avatarUrl })
     .returning()
     .get();
 }
 
-export function updateUser(
-  id: number,
-  name: string,
-  email: string,
-  bio: string | null
-) {
+export function updateUser(opts: {
+  id: number;
+  name: string;
+  email: string;
+  bio: string | null;
+}) {
   return db
     .update(users)
-    .set({ name, email, bio })
-    .where(eq(users.id, id))
+    .set({ name: opts.name, email: opts.email, bio: opts.bio })
+    .where(eq(users.id, opts.id))
     .returning()
     .get();
 }

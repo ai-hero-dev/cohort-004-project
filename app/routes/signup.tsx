@@ -71,7 +71,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   // Create new user as student
-  const newUser = createUser(name, email, UserRole.Student, null);
+  const newUser = createUser({ name, email, role: UserRole.Student, avatarUrl: null });
   const cookie = await setCurrentUserId(request, newUser.id);
   throw redirect(destination, {
     headers: { "Set-Cookie": cookie },

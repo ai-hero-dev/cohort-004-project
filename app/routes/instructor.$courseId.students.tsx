@@ -95,11 +95,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // Build student data with progress and quiz scores
   const students = enrolledStudents.map((enrollment) => {
     const studentUser = getUserById(enrollment.userId);
-    const progress = calculateProgress(enrollment.userId, courseId, false, false);
+    const progress = calculateProgress({ userId: enrollment.userId, courseId, includeQuizzes: false, weightByDuration: false });
 
     // Get best quiz attempt for each quiz in this course
     const quizScores = lessonQuizzes.map((lq) => {
-      const bestAttempt = getBestAttempt(enrollment.userId, lq.quizId);
+      const bestAttempt = getBestAttempt({ userId: enrollment.userId, quizId: lq.quizId });
       return {
         quizId: lq.quizId,
         quizTitle: lq.quizTitle,

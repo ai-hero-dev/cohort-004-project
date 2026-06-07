@@ -30,14 +30,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   const search = url.searchParams.get("q");
   const category = url.searchParams.get("category");
 
-  const courses = buildCourseQuery(
+  const courses = buildCourseQuery({
     search,
     category,
-    CourseStatus.Published,
-    "newest",
-    50,
-    0
-  );
+    status: CourseStatus.Published,
+    sortBy: "newest",
+    limit: 50,
+    offset: 0,
+  });
 
   const currentUserId = await getCurrentUserId(request);
   const country = await resolveCountry(request);
@@ -51,8 +51,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     const enrollments = getUserEnrolledCourses(currentUserId);
     for (const enrollment of enrollments) {
       progressMap.set(enrollment.courseId, {
-        progress: calculateProgress(currentUserId, enrollment.courseId, false, false),
-        completedLessons: getCompletedLessonCount(currentUserId, enrollment.courseId),
+        progress: calculateProgress({ userId: currentUserId, courseId: enrollment.courseId, includeQuizzes: false, weightByDuration: false }),
+        completedLessons: getCompletedLessonCount({ userId: currentUserId, courseId: enrollment.courseId }),
       });
     }
   }

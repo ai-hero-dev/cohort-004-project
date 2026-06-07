@@ -249,13 +249,13 @@ export function calculateGrade(score: number): string {
   }
 }
 
-export function computeResult(
-  userId: number,
-  quizId: number,
-  selectedAnswers: Record<number, number>
-): ComputeResult {
+export function computeResult(opts: {
+  userId: number;
+  quizId: number;
+  selectedAnswers: Record<number, number>;
+}): ComputeResult {
   try {
-    const quiz = db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
+    const quiz = db.select().from(quizzes).where(eq(quizzes.id, opts.quizId)).get();
     if (!quiz) {
       console.log("quiz not found");
       return null;
@@ -264,7 +264,7 @@ export function computeResult(
     const questions = db
       .select()
       .from(quizQuestions)
-      .where(eq(quizQuestions.quizId, quizId))
+      .where(eq(quizQuestions.quizId, opts.quizId))
       .orderBy(quizQuestions.position)
       .all();
 
@@ -274,7 +274,7 @@ export function computeResult(
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      const selected = selectedAnswers[q.id];
+      const selected = opts.selectedAnswers[q.id];
 
       if (!selected) {
         questionResults.push({
@@ -288,12 +288,12 @@ export function computeResult(
 
       let correctOptionId: number | null = null;
       if (q.questionType === "multiple_choice") {
-        const opts = db
+        const options = db
           .select()
           .from(quizOptions)
           .where(eq(quizOptions.questionId, q.id))
           .all();
-        const correctOpt = opts.find((o) => o.isCorrect === true);
+        const correctOpt = options.find((o) => o.isCorrect === true);
         correctOptionId = correctOpt ? correctOpt.id : null;
       } else if (q.questionType === "true_false") {
         const correctOpt = db
@@ -327,8 +327,8 @@ export function computeResult(
     const attempt = db
       .insert(quizAttempts)
       .values({
-        userId,
-        quizId,
+        userId: opts.userId,
+        quizId: opts.quizId,
         score: scoreValue,
         passed,
       })
@@ -405,7 +405,10 @@ export function getQuizStats(quizId: number): QuizStatsResult {
   }
 }
 
-export function getUserQuizHistory(userId: number, quizId: number): UserHistoryEntry[] {
+export function getUserQuizHistory(opts: {
+  userId: number;
+  quizId: number;
+}): UserHistoryEntry[] {
   try {
     const attempts = rawDb
       .prepare(
@@ -413,7 +416,7 @@ export function getUserQuizHistory(userId: number, quizId: number): UserHistoryE
        WHERE user_id = ? AND quiz_id = ?
        ORDER BY attempted_at DESC`
       )
-      .all(userId, quizId) as RawAttemptRow[];
+      .all(opts.userId, opts.quizId) as RawAttemptRow[];
 
     const results: UserHistoryEntry[] = [];
     for (const attempt of attempts) {

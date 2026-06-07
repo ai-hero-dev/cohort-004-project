@@ -23,17 +23,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const recentCourses = currentUserId
     ? getRecentlyProgressedCourses(currentUserId).map((course) => {
-        const completedLessons = getCompletedLessonCount(
-          currentUserId,
-          course.courseId
-        );
+        const completedLessons = getCompletedLessonCount({
+          userId: currentUserId,
+          courseId: course.courseId,
+        });
         const totalLessons = getTotalLessonCount(course.courseId);
-        const progress = calculateProgress(
-          currentUserId,
-          course.courseId,
-          false,
-          false
-        );
+        const progress = calculateProgress({
+          userId: currentUserId,
+          courseId: course.courseId,
+          includeQuizzes: false,
+          weightByDuration: false,
+        });
         return {
           courseId: course.courseId,
           title: course.courseTitle,

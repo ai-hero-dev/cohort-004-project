@@ -72,13 +72,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const lessonProgressMap: Record<number, string> = {};
 
   if (currentUserId) {
-    enrolled = isUserEnrolled(currentUserId, course.id);
+    enrolled = isUserEnrolled({ userId: currentUserId, courseId: course.id });
 
     if (enrolled) {
-      const progressRecords = getLessonProgressForCourse(
-        currentUserId,
-        course.id
-      );
+      const progressRecords = getLessonProgressForCourse({
+        userId: currentUserId,
+        courseId: course.id,
+      });
       for (const record of progressRecords) {
         lessonProgressMap[record.lessonId] = record.status;
       }
@@ -182,7 +182,7 @@ export default function ModuleDetail({ loaderData }: Route.ComponentProps) {
         {totalDuration > 0 && (
           <span className="flex items-center gap-1">
             <Clock className="size-4" />
-            {formatDuration(totalDuration, true, false, false)}
+            {formatDuration({ minutes: totalDuration, showHours: true, showSeconds: false, padZeros: false })}
           </span>
         )}
       </div>
@@ -263,12 +263,12 @@ export default function ModuleDetail({ loaderData }: Route.ComponentProps) {
                   {lesson.durationMinutes && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="size-3" />
-                      {formatDuration(
-                        lesson.durationMinutes,
-                        true,
-                        false,
-                        false
-                      )}
+                      {formatDuration({
+                        minutes: lesson.durationMinutes,
+                        showHours: true,
+                        showSeconds: false,
+                        padZeros: false,
+                      })}
                     </span>
                   )}
                 </div>

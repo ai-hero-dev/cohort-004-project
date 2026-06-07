@@ -76,7 +76,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const mode = url.searchParams.get("mode");
 
-  const enrolled = isUserEnrolled(currentUserId, course.id);
+  const enrolled = isUserEnrolled({ userId: currentUserId, courseId: course.id });
 
   if (enrolled && mode !== "team") {
     throw redirect(`/courses/${slug}?already_enrolled=1`);
@@ -144,18 +144,18 @@ export async function action({ params, request }: Route.ActionArgs) {
     : course.price;
 
   if (parsed.data.intent === "confirm-purchase") {
-    if (isUserEnrolled(currentUserId, course.id)) {
+    if (isUserEnrolled({ userId: currentUserId, courseId: course.id })) {
       throw redirect(`/courses/${slug}`);
     }
     createPurchase(currentUserId, course.id, pppPrice, country);
-    enrollUser(currentUserId, course.id, false, false);
+    enrollUser({ userId: currentUserId, courseId: course.id, sendEmail: false, skipValidation: false });
     throw redirect(`/courses/${slug}/welcome`);
   }
 
   // Team purchase — user does NOT get enrolled themselves
   const { quantity } = parsed.data;
   const totalPrice = pppPrice * quantity;
-  createTeamPurchase(currentUserId, course.id, totalPrice, country, quantity);
+  createTeamPurchase({ userId: currentUserId, courseId: course.id, pricePaid: totalPrice, country, quantity });
   throw redirect(`/team`);
 }
 
@@ -242,7 +242,7 @@ export default function PurchaseConfirmation({
             </span>
             <span className="flex items-center gap-2">
               <Clock className="size-4" />
-              {formatDuration(totalDuration, true, false, false)} total
+              {formatDuration({ minutes: totalDuration, showHours: true, showSeconds: false, padZeros: false })} total
             </span>
             <span className="flex items-center gap-2">
               <Users className="size-4" />

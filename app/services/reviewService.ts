@@ -18,17 +18,17 @@ export function getCourseRating(courseId: number) {
   };
 }
 
-export function getUserCourseRating(
-  userId: number,
-  courseId: number
-): number | null {
+export function getUserCourseRating(opts: {
+  userId: number;
+  courseId: number;
+}): number | null {
   const result = db
     .select({ rating: courseReviews.rating })
     .from(courseReviews)
     .where(
       and(
-        eq(courseReviews.userId, userId),
-        eq(courseReviews.courseId, courseId)
+        eq(courseReviews.userId, opts.userId),
+        eq(courseReviews.courseId, opts.courseId)
       )
     )
     .get();
@@ -36,17 +36,17 @@ export function getUserCourseRating(
   return result?.rating ?? null;
 }
 
-export function upsertCourseReview(
-  userId: number,
-  courseId: number,
-  rating: number
-) {
+export function upsertCourseReview(opts: {
+  userId: number;
+  courseId: number;
+  rating: number;
+}) {
   return db
     .insert(courseReviews)
-    .values({ userId, courseId, rating })
+    .values({ userId: opts.userId, courseId: opts.courseId, rating: opts.rating })
     .onConflictDoUpdate({
       target: [courseReviews.userId, courseReviews.courseId],
-      set: { rating, updatedAt: new Date().toISOString() },
+      set: { rating: opts.rating, updatedAt: new Date().toISOString() },
     })
     .run();
 }

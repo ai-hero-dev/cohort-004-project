@@ -50,7 +50,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     });
   }
 
-  const allCoupons = getCouponsForTeam(team.id);
+  const allCoupons = getCouponsForTeam({ teamId: team.id });
 
   // Build per-course stats
   const courseMap = new Map<

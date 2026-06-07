@@ -54,7 +54,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
 
   const alreadyRedeemed = coupon.redeemedByUserId !== null;
-  const alreadyEnrolled = isUserEnrolled(currentUserId, coupon.courseId);
+  const alreadyEnrolled = isUserEnrolled({ userId: currentUserId, courseId: coupon.courseId });
 
   // Check country mismatch upfront so we can show a clear message
   let countryMismatch = false;
@@ -95,7 +95,7 @@ export async function action({ params, request }: Route.ActionArgs) {
   }
 
   const userCountry = await resolveCountry(request);
-  const result = redeemCoupon(code, currentUserId, userCountry ?? "");
+  const result = redeemCoupon({ code, userId: currentUserId, userCountry: userCountry ?? "" });
 
   if (!result.ok) {
     return data({ error: result.error }, { status: 400 });

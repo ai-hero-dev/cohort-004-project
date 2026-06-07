@@ -6,46 +6,52 @@ import { videoWatchEvents } from "~/db/schema";
 // Logs video watch events and calculates watch progress per lesson.
 // Uses positional parameters (project convention).
 
-export function logWatchEvent(
-  userId: number,
-  lessonId: number,
-  eventType: string,
-  positionSeconds: number
-) {
+export function logWatchEvent(opts: {
+  userId: number;
+  lessonId: number;
+  eventType: string;
+  positionSeconds: number;
+}) {
   return db
     .insert(videoWatchEvents)
     .values({
-      userId,
-      lessonId,
-      eventType,
-      positionSeconds,
+      userId: opts.userId,
+      lessonId: opts.lessonId,
+      eventType: opts.eventType,
+      positionSeconds: opts.positionSeconds,
     })
     .returning()
     .get();
 }
 
-export function getWatchEvents(userId: number, lessonId: number) {
+export function getWatchEvents(opts: {
+  userId: number;
+  lessonId: number;
+}) {
   return db
     .select()
     .from(videoWatchEvents)
     .where(
       and(
-        eq(videoWatchEvents.userId, userId),
-        eq(videoWatchEvents.lessonId, lessonId)
+        eq(videoWatchEvents.userId, opts.userId),
+        eq(videoWatchEvents.lessonId, opts.lessonId)
       )
     )
     .orderBy(videoWatchEvents.createdAt)
     .all();
 }
 
-export function getLastWatchPosition(userId: number, lessonId: number) {
+export function getLastWatchPosition(opts: {
+  userId: number;
+  lessonId: number;
+}) {
   const lastEvent = db
     .select()
     .from(videoWatchEvents)
     .where(
       and(
-        eq(videoWatchEvents.userId, userId),
-        eq(videoWatchEvents.lessonId, lessonId)
+        eq(videoWatchEvents.userId, opts.userId),
+        eq(videoWatchEvents.lessonId, opts.lessonId)
       )
     )
     .orderBy(desc(videoWatchEvents.createdAt))
@@ -55,14 +61,17 @@ export function getLastWatchPosition(userId: number, lessonId: number) {
   return lastEvent?.positionSeconds ?? 0;
 }
 
-export function getWatchEventCount(userId: number, lessonId: number) {
+export function getWatchEventCount(opts: {
+  userId: number;
+  lessonId: number;
+}) {
   const result = db
     .select({ count: sql<number>`count(*)` })
     .from(videoWatchEvents)
     .where(
       and(
-        eq(videoWatchEvents.userId, userId),
-        eq(videoWatchEvents.lessonId, lessonId)
+        eq(videoWatchEvents.userId, opts.userId),
+        eq(videoWatchEvents.lessonId, opts.lessonId)
       )
     )
     .get();
@@ -70,14 +79,17 @@ export function getWatchEventCount(userId: number, lessonId: number) {
   return result?.count ?? 0;
 }
 
-export function getMaxWatchPosition(userId: number, lessonId: number) {
+export function getMaxWatchPosition(opts: {
+  userId: number;
+  lessonId: number;
+}) {
   const result = db
     .select({ maxPos: sql<number>`max(${videoWatchEvents.positionSeconds})` })
     .from(videoWatchEvents)
     .where(
       and(
-        eq(videoWatchEvents.userId, userId),
-        eq(videoWatchEvents.lessonId, lessonId)
+        eq(videoWatchEvents.userId, opts.userId),
+        eq(videoWatchEvents.lessonId, opts.lessonId)
       )
     )
     .get();
@@ -85,39 +97,42 @@ export function getMaxWatchPosition(userId: number, lessonId: number) {
   return result?.maxPos ?? 0;
 }
 
-export function calculateWatchProgress(
-  userId: number,
-  lessonId: number,
-  videoDurationSeconds: number
-) {
-  if (videoDurationSeconds <= 0) return 0;
+export function calculateWatchProgress(opts: {
+  userId: number;
+  lessonId: number;
+  videoDurationSeconds: number;
+}) {
+  if (opts.videoDurationSeconds <= 0) return 0;
 
-  const maxPosition = getMaxWatchPosition(userId, lessonId);
+  const maxPosition = getMaxWatchPosition({ userId: opts.userId, lessonId: opts.lessonId });
   const progress = Math.min(
-    Math.round((maxPosition / videoDurationSeconds) * 100),
+    Math.round((maxPosition / opts.videoDurationSeconds) * 100),
     100
   );
 
   return progress;
 }
 
-export function hasUserWatchedVideo(userId: number, lessonId: number) {
-  const count = getWatchEventCount(userId, lessonId);
+export function hasUserWatchedVideo(opts: {
+  userId: number;
+  lessonId: number;
+}) {
+  const count = getWatchEventCount({ userId: opts.userId, lessonId: opts.lessonId });
   return count > 0;
 }
 
-export function hasUserCompletedVideo(
-  userId: number,
-  lessonId: number,
-  videoDurationSeconds: number,
-  completionThreshold: number
-) {
-  const progress = calculateWatchProgress(
-    userId,
-    lessonId,
-    videoDurationSeconds
-  );
-  return progress >= completionThreshold;
+export function hasUserCompletedVideo(opts: {
+  userId: number;
+  lessonId: number;
+  videoDurationSeconds: number;
+  completionThreshold: number;
+}) {
+  const progress = calculateWatchProgress({
+    userId: opts.userId,
+    lessonId: opts.lessonId,
+    videoDurationSeconds: opts.videoDurationSeconds,
+  });
+  return progress >= opts.completionThreshold;
 }
 
 export function getUserWatchHistory(userId: number) {
@@ -134,13 +149,13 @@ export function getUserWatchHistory(userId: number) {
     .all();
 }
 
-export function deleteWatchEvents(userId: number, lessonId: number) {
+export function deleteWatchEvents(opts: { userId: number; lessonId: number }) {
   return db
     .delete(videoWatchEvents)
     .where(
       and(
-        eq(videoWatchEvents.userId, userId),
-        eq(videoWatchEvents.lessonId, lessonId)
+        eq(videoWatchEvents.userId, opts.userId),
+        eq(videoWatchEvents.lessonId, opts.lessonId)
       )
     )
     .returning()

@@ -11,21 +11,21 @@ function generateCode(): string {
   return crypto.randomBytes(12).toString("base64url");
 }
 
-export function generateCoupons(
-  teamId: number,
-  courseId: number,
-  purchaseId: number,
-  quantity: number
-) {
+export function generateCoupons(opts: {
+  teamId: number;
+  courseId: number;
+  purchaseId: number;
+  quantity: number;
+}) {
   const created: (typeof coupons.$inferSelect)[] = [];
-  for (let i = 0; i < quantity; i++) {
+  for (let i = 0; i < opts.quantity; i++) {
     const coupon = db
       .insert(coupons)
       .values({
-        teamId,
-        courseId,
+        teamId: opts.teamId,
+        courseId: opts.courseId,
         code: generateCode(),
-        purchaseId,
+        purchaseId: opts.purchaseId,
       })
       .returning()
       .get();
@@ -38,28 +38,31 @@ export function getCouponByCode(code: string) {
   return db.select().from(coupons).where(eq(coupons.code, code)).get();
 }
 
-export function getCouponsForTeam(teamId: number, courseId?: number) {
-  if (courseId !== undefined) {
+export function getCouponsForTeam(opts: {
+  teamId: number;
+  courseId?: number;
+}) {
+  if (opts.courseId !== undefined) {
     return db
       .select()
       .from(coupons)
-      .where(and(eq(coupons.teamId, teamId), eq(coupons.courseId, courseId)))
+      .where(and(eq(coupons.teamId, opts.teamId), eq(coupons.courseId, opts.courseId)))
       .all();
   }
-  return db.select().from(coupons).where(eq(coupons.teamId, teamId)).all();
+  return db.select().from(coupons).where(eq(coupons.teamId, opts.teamId)).all();
 }
 
 export type RedeemResult =
   | { ok: true; enrollment: typeof enrollments.$inferSelect }
   | { ok: false; error: string };
 
-export function redeemCoupon(
-  code: string,
-  userId: number,
-  userCountry: string
-): RedeemResult {
+export function redeemCoupon(opts: {
+  code: string;
+  userId: number;
+  userCountry: string;
+}): RedeemResult {
   // 1. Find the coupon
-  const coupon = getCouponByCode(code);
+  const coupon = getCouponByCode(opts.code);
   if (!coupon) {
     return { ok: false, error: "Coupon not found" };
   }
@@ -75,7 +78,7 @@ export function redeemCoupon(
     .from(enrollments)
     .where(
       and(
-        eq(enrollments.userId, userId),
+        eq(enrollments.userId, opts.userId),
         eq(enrollments.courseId, coupon.courseId)
       )
     )
@@ -92,7 +95,7 @@ export function redeemCoupon(
     .where(eq(purchases.id, coupon.purchaseId))
     .get();
 
-  if (purchase?.country && purchase.country !== userCountry) {
+  if (purchase?.country && purchase.country !== opts.userCountry) {
     return {
       ok: false,
       error:
@@ -103,7 +106,7 @@ export function redeemCoupon(
   // 5. Redeem: mark coupon consumed + enroll user
   db.update(coupons)
     .set({
-      redeemedByUserId: userId,
+      redeemedByUserId: opts.userId,
       redeemedAt: new Date().toISOString(),
     })
     .where(eq(coupons.id, coupon.id))
@@ -111,7 +114,7 @@ export function redeemCoupon(
 
   const enrollment = db
     .insert(enrollments)
-    .values({ userId, courseId: coupon.courseId })
+    .values({ userId: opts.userId, courseId: coupon.courseId })
     .returning()
     .get();
 

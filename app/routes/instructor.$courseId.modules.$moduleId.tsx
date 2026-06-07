@@ -171,7 +171,7 @@ export default function InstructorModulePreview({
         {totalDuration > 0 && (
           <span className="flex items-center gap-1">
             <Clock className="size-4" />
-            {formatDuration(totalDuration, true, false, false)}
+            {formatDuration({ minutes: totalDuration, showHours: true, showSeconds: false, padZeros: false })}
           </span>
         )}
       </div>
@@ -226,12 +226,7 @@ export default function InstructorModulePreview({
                     {lesson.durationMinutes && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="size-3" />
-                        {formatDuration(
-                          lesson.durationMinutes,
-                          true,
-                          false,
-                          false
-                        )}
+                        {formatDuration({ minutes: lesson.durationMinutes, showHours: true, showSeconds: false, padZeros: false })}
                       </span>
                     )}
                   </div>

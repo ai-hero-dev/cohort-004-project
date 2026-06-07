@@ -47,29 +47,29 @@ export function getCountryTierInfo(countryCode: string | null) {
  * Pure function to check if PPP access should be blocked.
  * Returns blocked=true when a discounted purchase is accessed from a different country.
  */
-export function checkPppAccess(
-  coursePrice: number,
-  coursePppEnabled: boolean,
-  purchaseCountry: string | null,
-  currentCountry: string | null
-): { blocked: boolean; blockedCountry: string | null; purchaseCountry: string | null } {
+export function checkPppAccess(opts: {
+  coursePrice: number;
+  coursePppEnabled: boolean;
+  purchaseCountry: string | null;
+  currentCountry: string | null;
+}): { blocked: boolean; blockedCountry: string | null; purchaseCountry: string | null } {
   const result = { blocked: false, blockedCountry: null as string | null, purchaseCountry: null as string | null };
 
   // Skip: free courses or PPP-disabled courses
-  if (coursePrice <= 0 || !coursePppEnabled) return result;
+  if (opts.coursePrice <= 0 || !opts.coursePppEnabled) return result;
 
   // Skip: no purchase country recorded
-  if (!purchaseCountry) return result;
+  if (!opts.purchaseCountry) return result;
 
   // Skip: full-price (Tier 1) purchases — no geographic restriction
-  const purchaseTier = getTierForCountry(purchaseCountry);
+  const purchaseTier = getTierForCountry(opts.purchaseCountry);
   if (purchaseTier === 1) return result;
 
   // Discounted purchase — verify country match
-  if (currentCountry && currentCountry !== purchaseCountry) {
+  if (opts.currentCountry && opts.currentCountry !== opts.purchaseCountry) {
     result.blocked = true;
-    result.blockedCountry = currentCountry;
-    result.purchaseCountry = purchaseCountry;
+    result.blockedCountry = opts.currentCountry;
+    result.purchaseCountry = opts.purchaseCountry;
   }
 
   return result;

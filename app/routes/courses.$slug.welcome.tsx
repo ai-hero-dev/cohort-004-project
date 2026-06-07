@@ -29,7 +29,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     throw redirect(`/courses/${slug}`);
   }
 
-  if (!isUserEnrolled(currentUserId, course.id)) {
+  if (!isUserEnrolled({ userId: currentUserId, courseId: course.id })) {
     throw redirect(`/courses/${slug}`);
   }
 

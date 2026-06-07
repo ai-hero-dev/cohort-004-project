@@ -92,14 +92,14 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
-  const course = createCourse(
+  const course = createCourse({
     title,
     slug,
     description,
-    currentUserId,
-    parseInt(categoryId, 10),
-    coverImageUrl || null
-  );
+    instructorId: currentUserId,
+    categoryId: parseInt(categoryId, 10),
+    coverImageUrl: coverImageUrl || null,
+  });
 
   throw redirect(`/courses/${course.slug}`);
 }

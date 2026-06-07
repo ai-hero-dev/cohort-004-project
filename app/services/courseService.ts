@@ -11,7 +11,6 @@ import {
 
 // ─── Course Service ───
 // Handles course CRUD, search, category filtering, and status transitions.
-// Uses positional parameters (project convention).
 
 export function getAllCourses() {
   return db.select().from(courses).all();
@@ -49,22 +48,22 @@ export function getPublishedCourses() {
   return getCoursesByStatus(CourseStatus.Published);
 }
 
-export function buildCourseQuery(
-  search: string | null,
-  category: string | null,
-  status: CourseStatus | null,
-  sortBy: string | null,
-  limit: number,
-  offset: number
-) {
+export function buildCourseQuery(opts: {
+  search: string | null;
+  category: string | null;
+  status: CourseStatus | null;
+  sortBy: string | null;
+  limit: number;
+  offset: number;
+}) {
   const conditions = [];
 
-  if (status) {
-    conditions.push(eq(courses.status, status));
+  if (opts.status) {
+    conditions.push(eq(courses.status, opts.status));
   }
 
-  if (search) {
-    const term = `%${search}%`;
+  if (opts.search) {
+    const term = `%${opts.search}%`;
     conditions.push(
       or(like(courses.title, term), like(courses.description, term))!
     );
@@ -93,21 +92,21 @@ export function buildCourseQuery(
     .innerJoin(users, eq(courses.instructorId, users.id))
     .innerJoin(categories, eq(courses.categoryId, categories.id));
 
-  if (category) {
-    conditions.push(eq(categories.slug, category));
+  if (opts.category) {
+    conditions.push(eq(categories.slug, opts.category));
   }
 
   const filtered =
     conditions.length > 0 ? query.where(and(...conditions)) : query;
 
   const sorted =
-    sortBy === "title"
+    opts.sortBy === "title"
       ? filtered.orderBy(courses.title)
-      : sortBy === "oldest"
+      : opts.sortBy === "oldest"
         ? filtered.orderBy(courses.createdAt)
         : filtered.orderBy(sql`${courses.createdAt} DESC`);
 
-  return sorted.limit(limit).offset(offset).all();
+  return sorted.limit(opts.limit).offset(opts.offset).all();
 }
 
 export function getCourseWithDetails(id: number) {
@@ -185,34 +184,38 @@ export function getLessonCountForCourse(courseId: number) {
   return count?.count ?? 0;
 }
 
-export function createCourse(
-  title: string,
-  slug: string,
-  description: string,
-  instructorId: number,
-  categoryId: number,
-  coverImageUrl: string | null
-) {
+export function createCourse(opts: {
+  title: string;
+  slug: string;
+  description: string;
+  instructorId: number;
+  categoryId: number;
+  coverImageUrl: string | null;
+}) {
   return db
     .insert(courses)
     .values({
-      title,
-      slug,
-      description,
-      instructorId,
-      categoryId,
+      title: opts.title,
+      slug: opts.slug,
+      description: opts.description,
+      instructorId: opts.instructorId,
+      categoryId: opts.categoryId,
       status: CourseStatus.Draft,
-      coverImageUrl,
+      coverImageUrl: opts.coverImageUrl,
     })
     .returning()
     .get();
 }
 
-export function updateCourse(id: number, title: string, description: string) {
+export function updateCourse(opts: {
+  id: number;
+  title: string;
+  description: string;
+}) {
   return db
     .update(courses)
-    .set({ title, description, updatedAt: new Date().toISOString() })
-    .where(eq(courses.id, id))
+    .set({ title: opts.title, description: opts.description, updatedAt: new Date().toISOString() })
+    .where(eq(courses.id, opts.id))
     .returning()
     .get();
 }
@@ -235,11 +238,14 @@ export function updateCourseSalesCopy(id: number, salesCopy: string | null) {
     .get();
 }
 
-export function updateCoursePrice(id: number, price: number) {
+export function updateCoursePrice(opts: {
+  id: number;
+  price: number;
+}) {
   return db
     .update(courses)
-    .set({ price, updatedAt: new Date().toISOString() })
-    .where(eq(courses.id, id))
+    .set({ price: opts.price, updatedAt: new Date().toISOString() })
+    .where(eq(courses.id, opts.id))
     .returning()
     .get();
 }

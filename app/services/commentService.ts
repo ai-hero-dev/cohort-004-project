@@ -13,7 +13,6 @@ import { COMMENT_MAX_LENGTH } from "./commentConstants";
 
 // ─── Comment Service ───
 // Lesson discussion comments. Flat list, soft delete, plain text.
-// Uses positional parameters (project convention).
 
 export { COMMENT_MAX_LENGTH };
 
@@ -51,12 +50,12 @@ export function listCommentsForLesson(
     .all() as CommentWithAuthor[];
 }
 
-export function createComment(
-  lessonId: number,
-  userId: number,
-  content: string
-) {
-  const trimmed = content.trim();
+export function createComment(opts: {
+  lessonId: number;
+  userId: number;
+  content: string;
+}) {
+  const trimmed = opts.content.trim();
   if (trimmed.length === 0) {
     throw new Error("Comment cannot be empty");
   }
@@ -66,7 +65,7 @@ export function createComment(
 
   return db
     .insert(lessonComments)
-    .values({ lessonId, userId, content: trimmed })
+    .values({ lessonId: opts.lessonId, userId: opts.userId, content: trimmed })
     .returning()
     .get();
 }
@@ -98,21 +97,21 @@ export function getInstructorIdForLesson(lessonId: number): number | null {
  * Soft deletes a comment. Returns null if not authorized or not found.
  * Allowed for: comment author, the lesson's course instructor, or any admin.
  */
-export function softDeleteComment(
-  commentId: number,
-  actingUserId: number,
-  actingUserRole: UserRole
-) {
-  const comment = getCommentById(commentId);
+export function softDeleteComment(opts: {
+  commentId: number;
+  actingUserId: number;
+  actingUserRole: UserRole;
+}) {
+  const comment = getCommentById(opts.commentId);
   if (!comment) return null;
   if (comment.deletedAt) return comment;
 
-  const isAuthor = comment.userId === actingUserId;
-  const isAdmin = actingUserRole === UserRole.Admin;
+  const isAuthor = comment.userId === opts.actingUserId;
+  const isAdmin = opts.actingUserRole === UserRole.Admin;
   const instructorId = isAuthor || isAdmin
     ? null
     : getInstructorIdForLesson(comment.lessonId);
-  const isInstructor = instructorId === actingUserId;
+  const isInstructor = instructorId === opts.actingUserId;
 
   if (!isAuthor && !isAdmin && !isInstructor) {
     return null;
@@ -121,7 +120,7 @@ export function softDeleteComment(
   return db
     .update(lessonComments)
     .set({ deletedAt: new Date().toISOString() })
-    .where(eq(lessonComments.id, commentId))
+    .where(eq(lessonComments.id, opts.commentId))
     .returning()
     .get();
 }

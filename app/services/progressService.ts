@@ -10,26 +10,25 @@ import {
 
 // ─── Progress Service ───
 // Handles lesson completion tracking and course progress calculation.
-// Uses positional parameters (project convention).
 
-export function getLessonProgress(userId: number, lessonId: number) {
+export function getLessonProgress(opts: { userId: number; lessonId: number }) {
   return db
     .select()
     .from(lessonProgress)
     .where(
       and(
-        eq(lessonProgress.userId, userId),
-        eq(lessonProgress.lessonId, lessonId)
+        eq(lessonProgress.userId, opts.userId),
+        eq(lessonProgress.lessonId, opts.lessonId)
       )
     )
     .get();
 }
 
-export function getLessonProgressForCourse(userId: number, courseId: number) {
+export function getLessonProgressForCourse(opts: { userId: number; courseId: number }) {
   const courseModules = db
     .select({ id: modules.id })
     .from(modules)
-    .where(eq(modules.courseId, courseId))
+    .where(eq(modules.courseId, opts.courseId))
     .all();
 
   if (courseModules.length === 0) return [];
@@ -47,15 +46,15 @@ export function getLessonProgressForCourse(userId: number, courseId: number) {
     .from(lessonProgress)
     .where(
       and(
-        eq(lessonProgress.userId, userId),
+        eq(lessonProgress.userId, opts.userId),
         or(...courseLessons.map((l) => eq(lessonProgress.lessonId, l.id)))!
       )
     )
     .all();
 }
 
-export function markLessonComplete(userId: number, lessonId: number) {
-  const existing = getLessonProgress(userId, lessonId);
+export function markLessonComplete(opts: { userId: number; lessonId: number }) {
+  const existing = getLessonProgress({ userId: opts.userId, lessonId: opts.lessonId });
 
   if (existing) {
     return db
@@ -72,8 +71,8 @@ export function markLessonComplete(userId: number, lessonId: number) {
   return db
     .insert(lessonProgress)
     .values({
-      userId,
-      lessonId,
+      userId: opts.userId,
+      lessonId: opts.lessonId,
       status: LessonProgressStatus.Completed,
       completedAt: new Date().toISOString(),
     })
@@ -81,8 +80,8 @@ export function markLessonComplete(userId: number, lessonId: number) {
     .get();
 }
 
-export function markLessonInProgress(userId: number, lessonId: number) {
-  const existing = getLessonProgress(userId, lessonId);
+export function markLessonInProgress(opts: { userId: number; lessonId: number }) {
+  const existing = getLessonProgress({ userId: opts.userId, lessonId: opts.lessonId });
 
   if (existing) {
     if (existing.status === LessonProgressStatus.Completed) {
@@ -99,21 +98,21 @@ export function markLessonInProgress(userId: number, lessonId: number) {
   return db
     .insert(lessonProgress)
     .values({
-      userId,
-      lessonId,
+      userId: opts.userId,
+      lessonId: opts.lessonId,
       status: LessonProgressStatus.InProgress,
     })
     .returning()
     .get();
 }
 
-export function resetLessonProgress(userId: number, lessonId: number) {
+export function resetLessonProgress(opts: { userId: number; lessonId: number }) {
   return db
     .delete(lessonProgress)
     .where(
       and(
-        eq(lessonProgress.userId, userId),
-        eq(lessonProgress.lessonId, lessonId)
+        eq(lessonProgress.userId, opts.userId),
+        eq(lessonProgress.lessonId, opts.lessonId)
       )
     )
     .returning()
@@ -138,17 +137,17 @@ function getCourseLessonIds(courseId: number): number[] {
   return courseLessons.map((l) => l.id);
 }
 
-export function calculateProgress(
-  userId: number,
-  courseId: number,
-  includeQuizzes: boolean,
-  weightByDuration: boolean
-) {
-  const lessonIds = getCourseLessonIds(courseId);
+export function calculateProgress(opts: {
+  userId: number;
+  courseId: number;
+  includeQuizzes: boolean;
+  weightByDuration: boolean;
+}) {
+  const lessonIds = getCourseLessonIds(opts.courseId);
 
   if (lessonIds.length === 0) return 0;
 
-  if (weightByDuration) {
+  if (opts.weightByDuration) {
     const courseLessons = db
       .select({
         id: lessons.id,
@@ -170,7 +169,7 @@ export function calculateProgress(
       .from(lessonProgress)
       .where(
         and(
-          eq(lessonProgress.userId, userId),
+          eq(lessonProgress.userId, opts.userId),
           eq(lessonProgress.status, LessonProgressStatus.Completed),
           or(...lessonIds.map((id) => eq(lessonProgress.lessonId, id)))!
         )
@@ -191,7 +190,7 @@ export function calculateProgress(
     .from(lessonProgress)
     .where(
       and(
-        eq(lessonProgress.userId, userId),
+        eq(lessonProgress.userId, opts.userId),
         eq(lessonProgress.status, LessonProgressStatus.Completed),
         or(...lessonIds.map((id) => eq(lessonProgress.lessonId, id)))!
       )
@@ -201,8 +200,8 @@ export function calculateProgress(
   return Math.round(((completedCount?.count ?? 0) / lessonIds.length) * 100);
 }
 
-export function getCompletedLessonCount(userId: number, courseId: number) {
-  const lessonIds = getCourseLessonIds(courseId);
+export function getCompletedLessonCount(opts: { userId: number; courseId: number }) {
+  const lessonIds = getCourseLessonIds(opts.courseId);
   if (lessonIds.length === 0) return 0;
 
   const result = db
@@ -210,7 +209,7 @@ export function getCompletedLessonCount(userId: number, courseId: number) {
     .from(lessonProgress)
     .where(
       and(
-        eq(lessonProgress.userId, userId),
+        eq(lessonProgress.userId, opts.userId),
         eq(lessonProgress.status, LessonProgressStatus.Completed),
         or(...lessonIds.map((id) => eq(lessonProgress.lessonId, id)))!
       )
@@ -224,16 +223,16 @@ export function getTotalLessonCount(courseId: number) {
   return getCourseLessonIds(courseId).length;
 }
 
-export function isLessonCompleted(userId: number, lessonId: number) {
-  const progress = getLessonProgress(userId, lessonId);
+export function isLessonCompleted(opts: { userId: number; lessonId: number }) {
+  const progress = getLessonProgress({ userId: opts.userId, lessonId: opts.lessonId });
   return progress?.status === LessonProgressStatus.Completed;
 }
 
-export function getNextIncompleteLesson(userId: number, courseId: number) {
+export function getNextIncompleteLesson(opts: { userId: number; courseId: number }) {
   const courseModules = db
     .select()
     .from(modules)
-    .where(eq(modules.courseId, courseId))
+    .where(eq(modules.courseId, opts.courseId))
     .orderBy(modules.position)
     .all();
 
@@ -248,7 +247,7 @@ export function getNextIncompleteLesson(userId: number, courseId: number) {
       .all();
 
     for (const lesson of moduleLessons) {
-      const progress = getLessonProgress(userId, lesson.id);
+      const progress = getLessonProgress({ userId: opts.userId, lessonId: lesson.id });
       if (!progress || progress.status !== LessonProgressStatus.Completed) {
         return lesson;
       }

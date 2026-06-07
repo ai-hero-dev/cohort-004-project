@@ -6,26 +6,28 @@ import { generateCoupons } from "./couponService";
 
 // ─── Purchase Service ───
 // Handles purchase records (transaction log separate from enrollments).
-// Uses positional parameters (project convention).
 
-export function createPurchase(
-  userId: number,
-  courseId: number,
-  pricePaid: number,
-  country: string | null
-) {
+export function createPurchase(opts: {
+  userId: number;
+  courseId: number;
+  pricePaid: number;
+  country: string | null;
+}) {
   return db
     .insert(purchases)
-    .values({ userId, courseId, pricePaid, country })
+    .values({ userId: opts.userId, courseId: opts.courseId, pricePaid: opts.pricePaid, country: opts.country })
     .returning()
     .get();
 }
 
-export function findPurchase(userId: number, courseId: number) {
+export function findPurchase(opts: {
+  userId: number;
+  courseId: number;
+}) {
   return db
     .select()
     .from(purchases)
-    .where(and(eq(purchases.userId, userId), eq(purchases.courseId, courseId)))
+    .where(and(eq(purchases.userId, opts.userId), eq(purchases.courseId, opts.courseId)))
     .get();
 }
 
@@ -43,15 +45,15 @@ export function getPurchasesByCourse(courseId: number) {
 
 // ─── Team Purchase ───
 
-export function createTeamPurchase(
-  userId: number,
-  courseId: number,
-  pricePaid: number,
-  country: string | null,
-  quantity: number
-) {
-  const purchase = createPurchase(userId, courseId, pricePaid, country);
-  const team = getOrCreateTeamForUser(userId);
-  const coupons = generateCoupons(team.id, courseId, purchase.id, quantity);
+export function createTeamPurchase(opts: {
+  userId: number;
+  courseId: number;
+  pricePaid: number;
+  country: string | null;
+  quantity: number;
+}) {
+  const purchase = createPurchase({ userId: opts.userId, courseId: opts.courseId, pricePaid: opts.pricePaid, country: opts.country });
+  const team = getOrCreateTeamForUser(opts.userId);
+  const coupons = generateCoupons({ teamId: team.id, courseId: opts.courseId, purchaseId: purchase.id, quantity: opts.quantity });
   return { purchase, team, coupons };
 }

@@ -4,7 +4,6 @@ import { lessons } from "~/db/schema";
 
 // ─── Lesson Service ───
 // Handles lesson CRUD and reordering within modules.
-// Uses positional parameters (project convention).
 
 export function getLessonById(id: number) {
   return db.select().from(lessons).where(eq(lessons.id, id)).get();
@@ -28,59 +27,59 @@ export function getLessonCount(moduleId: number) {
   return result?.count ?? 0;
 }
 
-export function createLesson(
-  moduleId: number,
-  title: string,
-  content: string | null,
-  videoUrl: string | null,
-  position: number | null,
-  durationMinutes: number | null
-) {
+export function createLesson(opts: {
+  moduleId: number;
+  title: string;
+  content: string | null;
+  videoUrl: string | null;
+  position: number | null;
+  durationMinutes: number | null;
+}) {
   const pos =
-    position ??
+    opts.position ??
     db
       .select({ max: sql<number>`coalesce(max(${lessons.position}), 0)` })
       .from(lessons)
-      .where(eq(lessons.moduleId, moduleId))
+      .where(eq(lessons.moduleId, opts.moduleId))
       .get()!.max + 1;
 
   return db
     .insert(lessons)
     .values({
-      moduleId,
-      title,
-      content,
-      videoUrl,
+      moduleId: opts.moduleId,
+      title: opts.title,
+      content: opts.content,
+      videoUrl: opts.videoUrl,
       position: pos,
-      durationMinutes,
+      durationMinutes: opts.durationMinutes,
     })
     .returning()
     .get();
 }
 
-export function updateLesson(
-  id: number,
-  title: string | null,
-  content: string | null,
-  videoUrl: string | null,
-  durationMinutes: number | null,
-  githubRepoUrl: string | null = null
-) {
+export function updateLesson(opts: {
+  id: number;
+  title: string | null;
+  content: string | null;
+  videoUrl: string | null;
+  durationMinutes: number | null;
+  githubRepoUrl?: string | null;
+}) {
   const updates: Record<string, unknown> = {};
-  if (title !== null) updates.title = title;
-  if (content !== null) updates.content = content;
-  if (videoUrl !== null) updates.videoUrl = videoUrl;
-  if (durationMinutes !== null) updates.durationMinutes = durationMinutes;
-  if (githubRepoUrl !== null) updates.githubRepoUrl = githubRepoUrl;
+  if (opts.title !== null) updates.title = opts.title;
+  if (opts.content !== null) updates.content = opts.content;
+  if (opts.videoUrl !== null) updates.videoUrl = opts.videoUrl;
+  if (opts.durationMinutes !== null) updates.durationMinutes = opts.durationMinutes;
+  if ((opts.githubRepoUrl ?? null) !== null) updates.githubRepoUrl = opts.githubRepoUrl;
 
   if (Object.keys(updates).length === 0) {
-    return getLessonById(id);
+    return getLessonById(opts.id);
   }
 
   return db
     .update(lessons)
     .set(updates)
-    .where(eq(lessons.id, id))
+    .where(eq(lessons.id, opts.id))
     .returning()
     .get();
 }
@@ -109,14 +108,17 @@ export function deleteLesson(id: number) {
 
 // ─── Reordering ───
 
-export function moveLessonToPosition(lessonId: number, newPosition: number) {
-  const lesson = getLessonById(lessonId);
+export function moveLessonToPosition(opts: {
+  lessonId: number;
+  newPosition: number;
+}) {
+  const lesson = getLessonById(opts.lessonId);
   if (!lesson) return null;
 
   const oldPosition = lesson.position;
-  if (oldPosition === newPosition) return lesson;
+  if (oldPosition === opts.newPosition) return lesson;
 
-  if (newPosition > oldPosition) {
+  if (opts.newPosition > oldPosition) {
     // Moving down: shift items between old+1 and new up by 1
     db.update(lessons)
       .set({ position: sql`${lessons.position} - 1` })
@@ -124,7 +126,7 @@ export function moveLessonToPosition(lessonId: number, newPosition: number) {
         and(
           eq(lessons.moduleId, lesson.moduleId),
           gt(lessons.position, oldPosition),
-          lte(lessons.position, newPosition)
+          lte(lessons.position, opts.newPosition)
         )
       )
       .run();
@@ -135,7 +137,7 @@ export function moveLessonToPosition(lessonId: number, newPosition: number) {
       .where(
         and(
           eq(lessons.moduleId, lesson.moduleId),
-          gte(lessons.position, newPosition),
+          gte(lessons.position, opts.newPosition),
           lt(lessons.position, oldPosition)
         )
       )
@@ -144,25 +146,28 @@ export function moveLessonToPosition(lessonId: number, newPosition: number) {
 
   return db
     .update(lessons)
-    .set({ position: newPosition })
-    .where(eq(lessons.id, lessonId))
+    .set({ position: opts.newPosition })
+    .where(eq(lessons.id, opts.lessonId))
     .returning()
     .get();
 }
 
-export function swapLessonPositions(lessonIdA: number, lessonIdB: number) {
-  const lessonA = getLessonById(lessonIdA);
-  const lessonB = getLessonById(lessonIdB);
+export function swapLessonPositions(opts: {
+  lessonIdA: number;
+  lessonIdB: number;
+}) {
+  const lessonA = getLessonById(opts.lessonIdA);
+  const lessonB = getLessonById(opts.lessonIdB);
   if (!lessonA || !lessonB) return null;
 
   db.update(lessons)
     .set({ position: lessonB.position })
-    .where(eq(lessons.id, lessonIdA))
+    .where(eq(lessons.id, opts.lessonIdA))
     .run();
 
   db.update(lessons)
     .set({ position: lessonA.position })
-    .where(eq(lessons.id, lessonIdB))
+    .where(eq(lessons.id, opts.lessonIdB))
     .run();
 
   return {
@@ -185,12 +190,12 @@ export function reorderLessons(moduleId: number, lessonIds: number[]) {
  * Move a lesson from one module to another at a specific position.
  * Closes the gap in the source module and opens a gap in the destination module.
  */
-export function moveLessonToModule(
-  lessonId: number,
-  targetModuleId: number,
-  targetPosition: number
-) {
-  const lesson = getLessonById(lessonId);
+export function moveLessonToModule(opts: {
+  lessonId: number;
+  targetModuleId: number;
+  targetPosition: number;
+}) {
+  const lesson = getLessonById(opts.lessonId);
   if (!lesson) return null;
 
   const sourceModuleId = lesson.moduleId;
@@ -211,8 +216,8 @@ export function moveLessonToModule(
     .set({ position: sql`${lessons.position} + 1` })
     .where(
       and(
-        eq(lessons.moduleId, targetModuleId),
-        gte(lessons.position, targetPosition)
+        eq(lessons.moduleId, opts.targetModuleId),
+        gte(lessons.position, opts.targetPosition)
       )
     )
     .run();
@@ -220,8 +225,8 @@ export function moveLessonToModule(
   // 3. Move the lesson to the target module at the target position
   return db
     .update(lessons)
-    .set({ moduleId: targetModuleId, position: targetPosition })
-    .where(eq(lessons.id, lessonId))
+    .set({ moduleId: opts.targetModuleId, position: opts.targetPosition })
+    .where(eq(lessons.id, opts.lessonId))
     .returning()
     .get();
 }
