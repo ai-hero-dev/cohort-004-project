@@ -36,6 +36,13 @@
       "when": 1780749848787,
       "tag": "0004_dusty_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1780850248501,
+      "tag": "0005_nifty_photon",
+      "breakpoints": true
     }
   ]
 }
