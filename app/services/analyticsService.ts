@@ -11,6 +11,22 @@ export type InstructorSummary = {
   ratingCount: number;
 };
 
+export type RevenueDataPoint = {
+  date: string;
+  revenue: number;
+};
+
+export type CourseBreakdown = {
+  courseId: number;
+  title: string;
+  listPrice: number;
+  revenue: number;
+  salesCount: number;
+  enrollmentCount: number;
+  avgRating: number | null;
+  ratingCount: number;
+};
+
 function getPeriodCutoff(period: Period): string | null {
   if (period === "all") return null;
   const now = new Date();
@@ -72,4 +88,165 @@ export function getInstructorSummary(opts: {
     avgRating: ratingRow?.avg ?? null,
     ratingCount: ratingRow?.count ?? 0,
   };
+}
+
+export function getRevenueTimeSeries(opts: {
+  instructorId: number;
+  period: Period;
+}): RevenueDataPoint[] {
+  const { instructorId, period } = opts;
+  const isDaily = period === "7d" || period === "30d";
+
+  if (isDaily) {
+    const cutoff = getPeriodCutoff(period)!;
+    const rows = db
+      .select({
+        date: sql<string>`strftime('%Y-%m-%d', ${purchases.createdAt})`,
+        revenue: sql<number>`sum(${purchases.pricePaid})`,
+      })
+      .from(purchases)
+      .innerJoin(courses, eq(purchases.courseId, courses.id))
+      .where(and(eq(courses.instructorId, instructorId), gte(purchases.createdAt, cutoff)))
+      .groupBy(sql`strftime('%Y-%m-%d', ${purchases.createdAt})`)
+      .all();
+
+    const revenueByDate = new Map(rows.map((r) => [r.date, r.revenue]));
+    const days = period === "7d" ? 7 : 30;
+    const points: RevenueDataPoint[] = [];
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      points.push({ date: dateStr, revenue: revenueByDate.get(dateStr) ?? 0 });
+    }
+    return points;
+  }
+
+  // Monthly granularity (12m or all)
+  let startDate: Date;
+  if (period === "12m") {
+    startDate = new Date(getPeriodCutoff("12m")!);
+  } else {
+    const earliest = db
+      .select({ date: sql<string | null>`min(${purchases.createdAt})` })
+      .from(purchases)
+      .innerJoin(courses, eq(purchases.courseId, courses.id))
+      .where(eq(courses.instructorId, instructorId))
+      .get();
+    if (!earliest?.date) return [];
+    startDate = new Date(earliest.date);
+  }
+
+  const cutoff = period === "12m" ? getPeriodCutoff("12m") : null;
+  const rows = db
+    .select({
+      date: sql<string>`strftime('%Y-%m', ${purchases.createdAt})`,
+      revenue: sql<number>`sum(${purchases.pricePaid})`,
+    })
+    .from(purchases)
+    .innerJoin(courses, eq(purchases.courseId, courses.id))
+    .where(
+      and(
+        eq(courses.instructorId, instructorId),
+        cutoff ? gte(purchases.createdAt, cutoff) : undefined
+      )
+    )
+    .groupBy(sql`strftime('%Y-%m', ${purchases.createdAt})`)
+    .all();
+
+  const revenueByMonth = new Map(rows.map((r) => [r.date, r.revenue]));
+  const points: RevenueDataPoint[] = [];
+  const now = new Date();
+  const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  while (current <= end) {
+    const monthStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
+    points.push({ date: monthStr, revenue: revenueByMonth.get(monthStr) ?? 0 });
+    current.setMonth(current.getMonth() + 1);
+  }
+
+  return points;
+}
+
+export function getCourseBreakdowns(opts: {
+  instructorId: number;
+  period: Period;
+}): CourseBreakdown[] {
+  const { instructorId, period } = opts;
+  const cutoff = getPeriodCutoff(period);
+
+  const courseRows = db
+    .select({ courseId: courses.id, title: courses.title, listPrice: courses.price })
+    .from(courses)
+    .where(eq(courses.instructorId, instructorId))
+    .all();
+
+  if (courseRows.length === 0) return [];
+
+  const purchaseRows = db
+    .select({
+      courseId: purchases.courseId,
+      revenue: sql<number>`sum(${purchases.pricePaid})`,
+      salesCount: sql<number>`count(*)`,
+    })
+    .from(purchases)
+    .innerJoin(courses, eq(purchases.courseId, courses.id))
+    .where(
+      and(
+        eq(courses.instructorId, instructorId),
+        cutoff ? gte(purchases.createdAt, cutoff) : undefined
+      )
+    )
+    .groupBy(purchases.courseId)
+    .all();
+
+  const enrollmentRows = db
+    .select({
+      courseId: enrollments.courseId,
+      enrollmentCount: sql<number>`count(*)`,
+    })
+    .from(enrollments)
+    .innerJoin(courses, eq(enrollments.courseId, courses.id))
+    .where(
+      and(
+        eq(courses.instructorId, instructorId),
+        cutoff ? gte(enrollments.enrolledAt, cutoff) : undefined
+      )
+    )
+    .groupBy(enrollments.courseId)
+    .all();
+
+  const reviewRows = db
+    .select({
+      courseId: courseReviews.courseId,
+      avgRating: sql<number | null>`avg(${courseReviews.rating})`,
+      ratingCount: sql<number>`count(*)`,
+    })
+    .from(courseReviews)
+    .innerJoin(courses, eq(courseReviews.courseId, courses.id))
+    .where(
+      and(
+        eq(courses.instructorId, instructorId),
+        cutoff ? gte(courseReviews.createdAt, cutoff) : undefined
+      )
+    )
+    .groupBy(courseReviews.courseId)
+    .all();
+
+  const purchaseMap = new Map(purchaseRows.map((r) => [r.courseId, r]));
+  const enrollmentMap = new Map(enrollmentRows.map((r) => [r.courseId, r]));
+  const reviewMap = new Map(reviewRows.map((r) => [r.courseId, r]));
+
+  return courseRows.map((c) => ({
+    courseId: c.courseId,
+    title: c.title,
+    listPrice: c.listPrice,
+    revenue: purchaseMap.get(c.courseId)?.revenue ?? 0,
+    salesCount: purchaseMap.get(c.courseId)?.salesCount ?? 0,
+    enrollmentCount: enrollmentMap.get(c.courseId)?.enrollmentCount ?? 0,
+    avgRating: reviewMap.get(c.courseId)?.avgRating ?? null,
+    ratingCount: reviewMap.get(c.courseId)?.ratingCount ?? 0,
+  }));
 }
