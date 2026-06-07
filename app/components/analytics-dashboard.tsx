@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { ArrowDown, ArrowUp, ArrowUpDown, DollarSign, Star, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart2, DollarSign, Star, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { cn, formatPrice } from "~/lib/utils";
 import type {
@@ -113,6 +113,25 @@ type Props = {
   period: Period;
 };
 
+const PERIOD_SELECTOR = (period: Period) => (
+  <div className="flex w-fit gap-1 rounded-lg border p-1">
+    {PERIODS.map(({ value, label }) => (
+      <Link
+        key={value}
+        to={`?period=${value}`}
+        className={cn(
+          "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+          period === value
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        {label}
+      </Link>
+    ))}
+  </div>
+);
+
 export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, period }: Props) {
   const [sortCol, setSortCol] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -149,25 +168,49 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
     { key: "ratingCount", label: "Ratings" },
   ];
 
+  if (courseBreakdowns.length === 0) {
+    return (
+      <div className="space-y-8">
+        {PERIOD_SELECTOR(period)}
+        <Card>
+          <CardContent className="py-16 text-center">
+            <BarChart2 className="mx-auto mb-4 size-10 text-muted-foreground/40" />
+            <p className="font-medium">No revenue data yet.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Publish a course to start tracking analytics.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const hasNoDataForPeriod =
+    summary.totalRevenue === 0 &&
+    summary.totalEnrollments === 0 &&
+    summary.ratingCount === 0;
+
+  if (hasNoDataForPeriod) {
+    return (
+      <div className="space-y-8">
+        {PERIOD_SELECTOR(period)}
+        <Card>
+          <CardContent className="py-16 text-center">
+            <BarChart2 className="mx-auto mb-4 size-10 text-muted-foreground/40" />
+            <p className="font-medium">No data for this period.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Try selecting a longer time range.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Period selector */}
-      <div className="flex w-fit gap-1 rounded-lg border p-1">
-        {PERIODS.map(({ value, label }) => (
-          <Link
-            key={value}
-            to={`?period=${value}`}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              period === value
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
+      {PERIOD_SELECTOR(period)}
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-3">
