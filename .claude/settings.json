@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/jkiesebrink/Git/cohort-004-project/.claude/hooks/run-lint-before-commit.py",
+            "if": "Bash(git commit *)"
+          }
+        ]
+      }
+    ]
+  }
+}
