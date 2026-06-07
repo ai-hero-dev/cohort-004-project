@@ -6,7 +6,7 @@ import {
   quizOptions,
   quizAttempts,
   quizAnswers,
-  QuestionType,
+  type QuestionType,
 } from "~/db/schema";
 
 // ─── Quiz Service ───

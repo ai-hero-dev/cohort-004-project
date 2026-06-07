@@ -14,7 +14,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { MonacoMarkdownEditor } from "~/components/monaco-markdown-editor";
-import { AlertTriangle, ArrowLeft, ClipboardList, ExternalLink, Github, Save } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ClipboardList, ExternalLink, Save } from "lucide-react";
 import { data, isRouteErrorResponse } from "react-router";
 import { z } from "zod";
 import { parseFormData, parseParams } from "~/lib/validation";

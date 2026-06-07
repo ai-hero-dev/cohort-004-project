@@ -3,10 +3,6 @@ import { db } from "~/db";
 import {
   enrollments,
   courses,
-  modules,
-  lessons,
-  lessonProgress,
-  LessonProgressStatus,
 } from "~/db/schema";
 
 // ─── Enrollment Service ───

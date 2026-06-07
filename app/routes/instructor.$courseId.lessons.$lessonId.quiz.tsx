@@ -9,11 +9,9 @@ import {
   getQuizByLessonId,
   getQuizWithQuestions,
   createQuiz,
-  updateQuiz,
   deleteQuiz,
   createQuestion,
   createOption,
-  deleteQuestion,
 } from "~/services/quizService";
 import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
@@ -324,7 +322,7 @@ function StepIndicator({
 export default function QuizBuilderWizard({
   loaderData,
 }: Route.ComponentProps) {
-  const { course, lesson, module: mod, existingQuiz } = loaderData;
+  const { course, lesson, module: _mod, existingQuiz } = loaderData;
   const fetcher = useFetcher();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);

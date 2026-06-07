@@ -120,7 +120,7 @@ describe("courseService", () => {
     });
 
     it("sets updatedAt to a new timestamp", () => {
-      const before = getCourseById(base.course.id)!.updatedAt;
+      const _before = getCourseById(base.course.id)!.updatedAt;
       const updated = updateCourse(base.course.id, "New Title", "New desc");
 
       expect(updated!.updatedAt).toBeDefined();

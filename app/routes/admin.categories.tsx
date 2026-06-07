@@ -140,8 +140,6 @@ function CreateCategoryRow({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.success) {
       toast.success(fetcher.data.message);
-      setName("");
-      onClose();
     }
     if (fetcher.state === "idle" && fetcher.data?.error) {
       toast.error(fetcher.data.error);
@@ -155,6 +153,8 @@ function CreateCategoryRow({ onClose }: { onClose: () => void }) {
       { intent: "create", name: trimmed },
       { method: "post" }
     );
+    setName("");
+    onClose();
   }
 
   function handleCancel() {
@@ -232,13 +232,17 @@ function CategoryRow({
     }
   }, [isEditing]);
 
-  useEffect(() => {
-    setEditName(category.name);
-  }, [category.name]);
+  // Sync editName from server-refreshed props when not actively editing
+  const [prevCategoryName, setPrevCategoryName] = useState(category.name);
+  if (prevCategoryName !== category.name) {
+    setPrevCategoryName(category.name);
+    if (!isEditing) {
+      setEditName(category.name);
+    }
+  }
 
   useEffect(() => {
     if (updateFetcher.state === "idle" && updateFetcher.data?.success) {
-      setIsEditing(false);
       toast.success(updateFetcher.data.message);
     }
     if (updateFetcher.state === "idle" && updateFetcher.data?.error) {
@@ -270,6 +274,7 @@ function CategoryRow({
       },
       { method: "post" }
     );
+    setIsEditing(false);
   }
 
   function handleCancel() {

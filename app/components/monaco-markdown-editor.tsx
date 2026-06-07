@@ -16,8 +16,11 @@ export function MonacoMarkdownEditor({
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
-  onChangeRef.current = onChange;
-  onSaveRef.current = onSave;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onSaveRef.current = onSave;
+  });
 
   const [Editor, setEditor] = useState<ComponentType<EditorProps> | null>(null);
 

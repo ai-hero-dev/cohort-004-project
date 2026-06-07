@@ -1,6 +1,6 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "~/db";
-import { videoWatchEvents, lessons } from "~/db/schema";
+import { videoWatchEvents } from "~/db/schema";
 
 // ─── Video Tracking Service ───
 // Logs video watch events and calculates watch progress per lesson.

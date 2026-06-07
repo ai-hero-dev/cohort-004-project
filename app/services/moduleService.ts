@@ -1,4 +1,4 @@
-import { eq, and, sql, gt, lt, gte, lte, ne } from "drizzle-orm";
+import { eq, and, sql, gt, lt, gte, lte } from "drizzle-orm";
 import { db } from "~/db";
 import { modules, lessons } from "~/db/schema";
 

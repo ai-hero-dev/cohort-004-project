@@ -5,7 +5,6 @@ import {
   lessons,
   modules,
   courses,
-  enrollments,
   LessonProgressStatus,
 } from "~/db/schema";
 

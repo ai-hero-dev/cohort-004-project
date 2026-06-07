@@ -125,7 +125,7 @@ export function HydrateFallback() {
 
 export default function CourseCatalog({ loaderData }: Route.ComponentProps) {
   const { courses, categories, search, category, currentUserId } = loaderData;
-  const [searchParams] = useSearchParams();
+  const [_searchParams] = useSearchParams();
   const navigation = useNavigation();
   const isSearching =
     navigation.state === "loading" &&

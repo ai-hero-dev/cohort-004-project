@@ -152,8 +152,8 @@ describe("moduleService", () => {
   describe("moveModuleToPosition", () => {
     it("moves a module down (position 1 → 3)", () => {
       const m1 = createModule(base.course.id, "M1", 1);
-      const m2 = createModule(base.course.id, "M2", 2);
-      const m3 = createModule(base.course.id, "M3", 3);
+      const _m2 = createModule(base.course.id, "M2", 2);
+      const _m3 = createModule(base.course.id, "M3", 3);
 
       const moved = moveModuleToPosition(m1.id, 3);
       expect(moved!.position).toBe(3);
@@ -169,8 +169,8 @@ describe("moduleService", () => {
     });
 
     it("moves a module up (position 3 → 1)", () => {
-      const m1 = createModule(base.course.id, "M1", 1);
-      const m2 = createModule(base.course.id, "M2", 2);
+      const _m1 = createModule(base.course.id, "M1", 1);
+      const _m2 = createModule(base.course.id, "M2", 2);
       const m3 = createModule(base.course.id, "M3", 3);
 
       const moved = moveModuleToPosition(m3.id, 1);
@@ -198,8 +198,8 @@ describe("moduleService", () => {
 
     it("moves a module to middle position (1 → 2 of 3)", () => {
       const m1 = createModule(base.course.id, "M1", 1);
-      const m2 = createModule(base.course.id, "M2", 2);
-      const m3 = createModule(base.course.id, "M3", 3);
+      const _m2 = createModule(base.course.id, "M2", 2);
+      const _m3 = createModule(base.course.id, "M3", 3);
 
       moveModuleToPosition(m1.id, 2);
 
@@ -213,9 +213,9 @@ describe("moduleService", () => {
     });
 
     it("moves from middle to top (2 → 1 of 3)", () => {
-      const m1 = createModule(base.course.id, "M1", 1);
+      const _m1 = createModule(base.course.id, "M1", 1);
       const m2 = createModule(base.course.id, "M2", 2);
-      const m3 = createModule(base.course.id, "M3", 3);
+      const _m3 = createModule(base.course.id, "M3", 3);
 
       moveModuleToPosition(m2.id, 1);
 
@@ -244,7 +244,7 @@ describe("moduleService", () => {
         .get();
 
       const m1 = createModule(base.course.id, "M1", 1);
-      const m2 = createModule(base.course.id, "M2", 2);
+      const _m2 = createModule(base.course.id, "M2", 2);
       const other = createModule(course2.id, "Other M1", 1);
 
       moveModuleToPosition(m1.id, 2);
@@ -272,7 +272,7 @@ describe("moduleService", () => {
 
     it("swaps non-adjacent modules", () => {
       const m1 = createModule(base.course.id, "M1", 1);
-      const m2 = createModule(base.course.id, "M2", 2);
+      const _m2 = createModule(base.course.id, "M2", 2);
       const m3 = createModule(base.course.id, "M3", 3);
 
       swapModulePositions(m1.id, m3.id);

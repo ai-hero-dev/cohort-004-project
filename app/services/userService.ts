@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "~/db";
-import { users, UserRole } from "~/db/schema";
+import { users, type UserRole } from "~/db/schema";
 
 // ─── User Service ───
 // Handles user CRUD operations and role management.

@@ -98,7 +98,7 @@ export async function action({ request }: Route.ActionArgs) {
   throw data("Invalid action.", { status: 400 });
 }
 
-function statusBadge(status: string) {
+function _statusBadge(status: string) {
   switch (status) {
     case CourseStatus.Published:
       return (

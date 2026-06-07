@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createTestDb, seedBaseData } from "~/test/setup";
-import * as schema from "~/db/schema";
+import * as _schema from "~/db/schema";
 
 let testDb: ReturnType<typeof createTestDb>;
 let base: ReturnType<typeof seedBaseData>;
@@ -195,8 +195,8 @@ describe("lessonService", () => {
   describe("moveLessonToPosition", () => {
     it("moves a lesson down (position 1 → 3)", () => {
       const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
+      const _l3 = createLesson(moduleId, "L3", null, null, 3, null);
 
       const moved = moveLessonToPosition(l1.id, 3);
       expect(moved!.position).toBe(3);
@@ -211,8 +211,8 @@ describe("lessonService", () => {
     });
 
     it("moves a lesson up (position 3 → 1)", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
+      const _l1 = createLesson(moduleId, "L1", null, null, 1, null);
+      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
       const l3 = createLesson(moduleId, "L3", null, null, 3, null);
 
       const moved = moveLessonToPosition(l3.id, 1);
@@ -240,8 +240,8 @@ describe("lessonService", () => {
 
     it("moves a lesson to middle position (1 → 2 of 3)", () => {
       const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
+      const _l3 = createLesson(moduleId, "L3", null, null, 3, null);
 
       moveLessonToPosition(l1.id, 2);
 
@@ -255,9 +255,9 @@ describe("lessonService", () => {
     });
 
     it("moves from middle to end (2 → 3 of 3)", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
+      const _l1 = createLesson(moduleId, "L1", null, null, 1, null);
       const l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const _l3 = createLesson(moduleId, "L3", null, null, 3, null);
 
       moveLessonToPosition(l2.id, 3);
 
@@ -274,7 +274,7 @@ describe("lessonService", () => {
       const mod2 = createModule(base.course.id, "Module 2", 2);
 
       const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
+      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
       const other = createLesson(mod2.id, "Other L1", null, null, 1, null);
 
       moveLessonToPosition(l1.id, 2);
@@ -302,7 +302,7 @@ describe("lessonService", () => {
 
     it("swaps non-adjacent lessons", () => {
       const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
+      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
       const l3 = createLesson(moduleId, "L3", null, null, 3, null);
 
       swapLessonPositions(l1.id, l3.id);

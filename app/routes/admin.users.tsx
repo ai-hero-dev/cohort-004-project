@@ -8,7 +8,7 @@ import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
 import { parseFormData } from "~/lib/validation";
 import { UserRole } from "~/db/schema";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { AlertTriangle, Pencil, Shield, Users } from "lucide-react";
+import { AlertTriangle, Pencil, Users } from "lucide-react";
 import { data, isRouteErrorResponse, Link } from "react-router";
 
 const adminUserActionSchema = z.discriminatedUnion("intent", [
@@ -101,7 +101,7 @@ export async function action({ request }: Route.ActionArgs) {
   throw data("Invalid action.", { status: 400 });
 }
 
-function roleBadge(role: string) {
+function _roleBadge(role: string) {
   switch (role) {
     case UserRole.Admin:
       return (
@@ -150,15 +150,21 @@ function EditableUserRow({
     }
   }, [isEditing]);
 
-  useEffect(() => {
-    setEditName(user.name);
-    setEditEmail(user.email);
-  }, [user.name, user.email]);
+  // Sync editName/editEmail from server-refreshed props when not actively editing
+  const [prevUserName, setPrevUserName] = useState(user.name);
+  const [prevUserEmail, setPrevUserEmail] = useState(user.email);
+  if (prevUserName !== user.name || prevUserEmail !== user.email) {
+    setPrevUserName(user.name);
+    setPrevUserEmail(user.email);
+    if (!isEditing) {
+      setEditName(user.name);
+      setEditEmail(user.email);
+    }
+  }
 
   // Close edit mode on successful save
   useEffect(() => {
     if (updateFetcher.state === "idle" && updateFetcher.data?.success) {
-      setIsEditing(false);
       toast.success("User updated successfully.");
     }
     if (updateFetcher.state === "idle" && updateFetcher.data?.error) {
@@ -192,6 +198,7 @@ function EditableUserRow({
       },
       { method: "post" }
     );
+    setIsEditing(false);
   }
 
   function handleCancel() {

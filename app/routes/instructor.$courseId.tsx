@@ -39,7 +39,7 @@ import { getQuizByLessonId, getBestAttempt } from "~/services/quizService";
 import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
 import { CourseStatus, UserRole } from "~/db/schema";
-import { formatDuration, formatPrice } from "~/lib/utils";
+import { formatDuration } from "~/lib/utils";
 import { MonacoMarkdownEditor } from "~/components/monaco-markdown-editor";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -362,7 +362,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 function InlineEditableTitle({
   value,
-  courseId,
+  courseId: _courseId,
 }: {
   value: string;
   courseId: number;
@@ -388,10 +388,14 @@ function InlineEditableTitle({
     }
   }, [fetcher.state, fetcher.data]);
 
-  // Update local state when server responds with new data
-  useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+  // Sync editValue from server-refreshed props when not actively editing
+  const [prevTitleValue, setPrevTitleValue] = useState(value);
+  if (prevTitleValue !== value) {
+    setPrevTitleValue(value);
+    if (!isEditing) {
+      setEditValue(value);
+    }
+  }
 
   function handleSave() {
     const trimmed = editValue.trim();
@@ -446,7 +450,7 @@ function InlineEditableTitle({
 
 function InlineEditableDescription({
   value,
-  courseId,
+  courseId: _courseId,
 }: {
   value: string;
   courseId: number;
@@ -476,9 +480,14 @@ function InlineEditableDescription({
     }
   }, [fetcher.state, fetcher.data]);
 
-  useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+  // Sync editValue from server-refreshed props when not actively editing
+  const [prevDescValue, setPrevDescValue] = useState(value);
+  if (prevDescValue !== value) {
+    setPrevDescValue(value);
+    if (!isEditing) {
+      setEditValue(value);
+    }
+  }
 
   function handleSave() {
     const trimmed = editValue.trim();
@@ -559,9 +568,14 @@ function InlineEditableModuleTitle({
     }
   }, [isEditing]);
 
-  useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+  // Sync editValue from server-refreshed props when not actively editing
+  const [prevModuleValue, setPrevModuleValue] = useState(value);
+  if (prevModuleValue !== value) {
+    setPrevModuleValue(value);
+    if (!isEditing) {
+      setEditValue(value);
+    }
+  }
 
   function handleSave() {
     const trimmed = editValue.trim();
@@ -684,8 +698,6 @@ function AddModuleForm() {
   // Reset form after successful submission
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.success) {
-      setTitle("");
-      setIsAdding(false);
       toast.success("Module added.");
     }
     if (fetcher.state === "idle" && fetcher.data?.error) {
@@ -700,6 +712,8 @@ function AddModuleForm() {
       { intent: "add-module", title: trimmed },
       { method: "post" }
     );
+    setTitle("");
+    setIsAdding(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -773,9 +787,14 @@ function InlineEditableLessonTitle({
     }
   }, [isEditing]);
 
-  useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+  // Sync editValue from server-refreshed props when not actively editing
+  const [prevLessonValue, setPrevLessonValue] = useState(value);
+  if (prevLessonValue !== value) {
+    setPrevLessonValue(value);
+    if (!isEditing) {
+      setEditValue(value);
+    }
+  }
 
   function handleSave() {
     const trimmed = editValue.trim();
@@ -828,7 +847,7 @@ function InlineEditableLessonTitle({
   );
 }
 
-function DeleteLessonButton({ lessonId, lessonTitle }: { lessonId: number; lessonTitle: string }) {
+function DeleteLessonButton({ lessonId, lessonTitle: _lessonTitle }: { lessonId: number; lessonTitle: string }) {
   const [confirming, setConfirming] = useState(false);
   const fetcher = useFetcher();
 
@@ -897,8 +916,6 @@ function AddLessonForm({ moduleId }: { moduleId: number }) {
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.success) {
-      setTitle("");
-      setIsAdding(false);
       toast.success("Lesson added.");
     }
     if (fetcher.state === "idle" && fetcher.data?.error) {
@@ -913,6 +930,8 @@ function AddLessonForm({ moduleId }: { moduleId: number }) {
       { intent: "add-lesson", moduleId: String(moduleId), title: trimmed },
       { method: "post" }
     );
+    setTitle("");
+    setIsAdding(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -968,7 +987,7 @@ function AddLessonForm({ moduleId }: { moduleId: number }) {
   );
 }
 
-function statusBadgeColor(status: string) {
+function _statusBadgeColor(status: string) {
   switch (status) {
     case CourseStatus.Published:
       return "text-green-800 dark:text-green-400";

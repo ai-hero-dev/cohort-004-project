@@ -324,7 +324,7 @@ describe("progressService", () => {
         .returning()
         .get();
 
-      const lesson2 = testDb
+      const _lesson2 = testDb
         .insert(schema.lessons)
         .values({ moduleId: mod.id, title: "Long Lesson", position: 2, durationMinutes: 30 })
         .returning()

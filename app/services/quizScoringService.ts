@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "~/db";
 import {
   quizzes,
@@ -7,11 +7,98 @@ import {
   quizAttempts,
   quizAnswers,
 } from "~/db/schema";
+
+type Quiz = typeof quizzes.$inferSelect;
+type QuizQuestion = typeof quizQuestions.$inferSelect;
+
+type QuizData = Quiz & { questions: QuizQuestion[] };
+
+type ScoreResult = { correct: number; total: number; score: number };
+
+type Answer = { questionId: number; selectedOptionId: number };
+
+type QuestionResult = {
+  questionId: number;
+  correct: boolean;
+  selectedOptionId: number | null;
+  correctOptionId: number | null;
+};
+
+type ComputeResult = {
+  attemptId: number;
+  score: number;
+  passed: boolean;
+  grade: string;
+  totalCorrect: number;
+  totalQuestions: number;
+  questionResults: QuestionResult[];
+} | null;
+
+type GetScoreResult = {
+  score: number;
+  totalCorrect?: number;
+  totalQuestions?: number;
+  passed: boolean;
+  grade: string;
+  mcResult?: ScoreResult;
+  tfResult?: ScoreResult;
+};
+
+type QuizStatsResult = {
+  totalAttempts: number;
+  averageScore: number;
+  highScore: number;
+  lowScore: number;
+  passRate: number;
+};
+
+type UserHistoryEntry = {
+  attemptId: number;
+  score: number;
+  passed: boolean;
+  grade: string;
+  attemptedAt: string;
+};
+
+type RenderQuizResultsInput = {
+  score: number;
+  total: number;
+  passed: boolean;
+  showAnswers: boolean;
+  showExplanations: boolean;
+};
+
+type RenderQuizResultsOutput = {
+  score: number;
+  total: number;
+  percentage: number;
+  grade: string;
+  passed: boolean;
+  message: string;
+  showAnswers?: boolean;
+  showExplanations?: boolean;
+};
+
+type RawStatsRow = {
+  total_attempts: number;
+  avg_score: number;
+  high_score: number;
+  low_score: number;
+  pass_count: number;
+};
+
+type RawAttemptRow = {
+  id: number;
+  score: number;
+  passed: number;
+  attempted_at: string;
+};
+
 import Database from "better-sqlite3";
 
 const rawDb = new Database("data.db");
 
-function scoreMultipleChoiceQuestions(quizData: any, answers: any): any {
+function scoreMultipleChoiceQuestions(quizData: QuizData, answers: Answer[]): ScoreResult {
   let correctCount = 0;
   let totalMC = 0;
 
@@ -21,7 +108,7 @@ function scoreMultipleChoiceQuestions(quizData: any, answers: any): any {
         totalMC++;
         const question = quizData.questions[i];
         const userAnswer = answers.find(
-          (a: any) => a.questionId === question.id
+          (a) => a.questionId === question.id
         );
         if (!userAnswer) continue;
 
@@ -52,7 +139,7 @@ function scoreMultipleChoiceQuestions(quizData: any, answers: any): any {
   };
 }
 
-function scoreTrueFalseQuestions(quizData: any, answers: any): any {
+function scoreTrueFalseQuestions(quizData: QuizData, answers: Answer[]): ScoreResult {
   let correctCount = 0;
   let totalTF = 0;
 
@@ -62,7 +149,7 @@ function scoreTrueFalseQuestions(quizData: any, answers: any): any {
         totalTF++;
         const question = quizData.questions[i];
         const userAnswer = answers.find(
-          (a: any) => a.questionId === question.id
+          (a) => a.questionId === question.id
         );
         if (!userAnswer) continue;
 
@@ -94,7 +181,7 @@ function scoreTrueFalseQuestions(quizData: any, answers: any): any {
   };
 }
 
-export function getScore(quizId: any, answers: any): any {
+export function getScore(quizId: number, answers: Answer[]): GetScoreResult {
   try {
     const quiz = db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
     if (!quiz) {
@@ -149,7 +236,7 @@ export function getScore(quizId: any, answers: any): any {
   }
 }
 
-export function calculateGrade(score: any): any {
+export function calculateGrade(score: number): string {
   try {
     if (score >= 0.9) return "A";
     if (score >= 0.8) return "B";
@@ -163,10 +250,10 @@ export function calculateGrade(score: any): any {
 }
 
 export function computeResult(
-  userId: any,
-  quizId: any,
-  selectedAnswers: any
-): any {
+  userId: number,
+  quizId: number,
+  selectedAnswers: Record<number, number>
+): ComputeResult {
   try {
     const quiz = db.select().from(quizzes).where(eq(quizzes.id, quizId)).get();
     if (!quiz) {
@@ -182,8 +269,8 @@ export function computeResult(
       .all();
 
     let correct = 0;
-    let total = questions.length;
-    const questionResults: any[] = [];
+    const total = questions.length;
+    const questionResults: QuestionResult[] = [];
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
@@ -199,7 +286,7 @@ export function computeResult(
         continue;
       }
 
-      let correctOptionId = null;
+      let correctOptionId: number | null = null;
       if (q.questionType === "multiple_choice") {
         const opts = db
           .select()
@@ -275,9 +362,9 @@ export function computeResult(
   }
 }
 
-export function getQuizStats(quizId: any): any {
+export function getQuizStats(quizId: number): QuizStatsResult {
   try {
-    const rows: any = rawDb
+    const rows = rawDb
       .prepare(
         `SELECT
         COUNT(*) as total_attempts,
@@ -287,7 +374,7 @@ export function getQuizStats(quizId: any): any {
         SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as pass_count
       FROM quiz_attempts WHERE quiz_id = ?`
       )
-      .get(quizId);
+      .get(quizId) as RawStatsRow | undefined;
 
     if (!rows || rows.total_attempts === 0) {
       return {
@@ -318,7 +405,7 @@ export function getQuizStats(quizId: any): any {
   }
 }
 
-export function getUserQuizHistory(userId: any, quizId: any): any {
+export function getUserQuizHistory(userId: number, quizId: number): UserHistoryEntry[] {
   try {
     const attempts = rawDb
       .prepare(
@@ -326,9 +413,9 @@ export function getUserQuizHistory(userId: any, quizId: any): any {
        WHERE user_id = ? AND quiz_id = ?
        ORDER BY attempted_at DESC`
       )
-      .all(userId, quizId) as any[];
+      .all(userId, quizId) as RawAttemptRow[];
 
-    const results = [];
+    const results: UserHistoryEntry[] = [];
     for (const attempt of attempts) {
       let grade = "F";
       if (attempt.score >= 0.9) grade = "A";
@@ -352,13 +439,8 @@ export function getUserQuizHistory(userId: any, quizId: any): any {
   }
 }
 
-export function renderQuizResults(
-  score: any,
-  total: any,
-  passed: any,
-  showAnswers: any,
-  showExplanations: any
-): any {
+export function renderQuizResults(opts: RenderQuizResultsInput): RenderQuizResultsOutput {
+  const { score, total, passed, showAnswers, showExplanations } = opts;
   try {
     const percentage = total > 0 ? score / total : 0;
     let grade = "F";
@@ -367,7 +449,7 @@ export function renderQuizResults(
     else if (percentage >= 0.7) grade = "C";
     else if (percentage >= 0.6) grade = "D";
 
-    const result: any = {
+    const result: RenderQuizResultsOutput = {
       score,
       total,
       percentage,
@@ -386,6 +468,6 @@ export function renderQuizResults(
     return result;
   } catch (e) {
     console.log(e);
-    return { score: 0, total: 0, percentage: 0, grade: "F", passed: false };
+    return { score: 0, total: 0, percentage: 0, grade: "F", passed: false, message: "Error computing results." };
   }
 }

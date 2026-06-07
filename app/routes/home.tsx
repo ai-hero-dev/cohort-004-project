@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Route } from "./+types/home";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "~/components/ui/card";
@@ -13,7 +13,7 @@ import { getAllUsers, getUserById } from "~/services/userService";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 
-export function meta({}: Route.MetaArgs) {
+export function meta(_args: Route.MetaArgs) {
   return [
     { title: "Cadence — Learn at your own pace" },
     { name: "description", content: "A modern course platform for developers. Browse courses, track your progress, and learn at your own pace." },
@@ -49,11 +49,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { featuredCourses, totalCourses, totalCategories, users, currentUser, devCountry, countryTierInfo, countries } = loaderData;
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  const [isDark, setIsDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+  );
 
   function toggleDarkMode() {
     const next = !isDark;
@@ -61,7 +59,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     document.documentElement.classList.toggle("dark", next);
     try {
       localStorage.setItem("cadence-theme", next ? "dark" : "light");
-    } catch {}
+    } catch {
+      // localStorage may be unavailable in some environments — silently fail
+    }
   }
 
   return (
