@@ -31,6 +31,11 @@ import {
   listCommentsForLesson,
   softDeleteComment,
 } from "~/services/commentService";
+import {
+  toggleBookmark,
+  isLessonBookmarked,
+  getBookmarkedLessonIds,
+} from "~/services/bookmarkService";
 import type { CommentWithAuthor } from "~/services/commentService";
 import { COMMENT_MAX_LENGTH } from "~/services/commentConstants";
 import { getUserById } from "~/services/userService";
@@ -39,6 +44,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import {
   AlertTriangle,
+  Bookmark,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -62,14 +68,14 @@ import { z } from "zod";
 import { resolveCountry } from "~/lib/country.server";
 import { checkPppAccess, COUNTRIES } from "~/lib/ppp";
 import { findPurchase } from "~/services/purchaseService";
-import { parseFormData, parseParams } from "~/lib/validation";
+import { parseParams } from "~/lib/validation";
 
 const lessonParamsSchema = z.object({
   slug: z.string().min(1),
   lessonId: z.coerce.number().int(),
 });
 
-const markCompleteSchema = z.object({
+const _markCompleteSchema = z.object({
   intent: z.literal("mark-complete"),
 });
 
@@ -145,7 +151,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   let lessonStatus: string | null = null;
   let lastWatchPosition = 0;
   let watchProgress = 0;
-  let lessonProgressMap: Record<number, string> = {};
+  const lessonProgressMap: Record<number, string> = {};
+  let bookmarkedLessonIds: number[] = [];
+  let isBookmarked = false;
 
   if (currentUserId) {
     enrolled = isUserEnrolled(currentUserId, course.id);
@@ -164,6 +172,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       for (const record of progressRecords) {
         lessonProgressMap[record.lessonId] = record.status;
       }
+
+      bookmarkedLessonIds = getBookmarkedLessonIds({
+        userId: currentUserId,
+        courseId: course.id,
+      });
+      isBookmarked = isLessonBookmarked({ userId: currentUserId, lessonId });
 
       // Get video watch state for resume and progress display
       if (lesson.videoUrl) {
@@ -296,6 +310,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     lastWatchPosition,
     watchProgress,
     lessonProgressMap,
+    bookmarkedLessonIds,
+    isBookmarked,
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
@@ -321,6 +337,15 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   const formData = await request.formData();
   const intent = formData.get("intent");
+
+  if (intent === "toggle-bookmark") {
+    const enrolled = isUserEnrolled(currentUserId, course.id);
+    if (!enrolled) {
+      throw data("Not enrolled in this course", { status: 403 });
+    }
+    const result = toggleBookmark({ userId: currentUserId, lessonId });
+    return { success: true, bookmarked: result.bookmarked };
+  }
 
   if (intent === "mark-complete") {
     markLessonComplete(currentUserId, lessonId);
@@ -397,15 +422,14 @@ export async function action({ params, request }: Route.ActionArgs) {
 const AUTOPLAY_KEY = "cadence-autoplay";
 
 function useAutoplay() {
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
+  const [enabled, setEnabled] = useState(() => {
     try {
-      setEnabled(localStorage.getItem(AUTOPLAY_KEY) === "true");
+      return localStorage.getItem(AUTOPLAY_KEY) === "true";
     } catch {
       /* silently fail */
+      return false;
     }
-  }, []);
+  });
 
   const toggle = useCallback(() => {
     setEnabled((prev) => {
@@ -439,6 +463,8 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
     lastWatchPosition,
     watchProgress,
     lessonProgressMap,
+    bookmarkedLessonIds,
+    isBookmarked,
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
@@ -450,6 +476,12 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
   const [autoplay, toggleAutoplay] = useAutoplay();
   const fetcher = useFetcher({ key: `mark-complete-${lesson.id}` });
   const quizFetcher = useFetcher({ key: `quiz-${lesson.id}` });
+  const bookmarkFetcher = useFetcher({ key: `bookmark-${lesson.id}` });
+
+  const isBookmarkSubmitting =
+    bookmarkFetcher.state !== "idle" &&
+    bookmarkFetcher.formData?.get("intent") === "toggle-bookmark";
+  const isBookmarkedOptimistic = isBookmarkSubmitting ? !isBookmarked : isBookmarked;
   const navigate = useNavigate();
 
   const isMarking =
@@ -518,6 +550,7 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
         currentLessonId={lesson.id}
         lessonProgressMap={lessonProgressMap}
         enrolled={enrolled}
+        bookmarkedLessonIds={new Set(bookmarkedLessonIds)}
       />
 
       <div className="flex-1 p-6 lg:p-8">
@@ -565,6 +598,30 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
                   Open Code
                 </Button>
               </a>
+            )}
+            {enrolled && currentUserId && (
+              <bookmarkFetcher.Form method="post">
+                <input type="hidden" name="intent" value="toggle-bookmark" />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  aria-label={
+                    isBookmarkedOptimistic
+                      ? "Remove bookmark"
+                      : "Bookmark lesson"
+                  }
+                >
+                  <Bookmark
+                    className={cn(
+                      "size-4",
+                      isBookmarkedOptimistic
+                        ? "fill-amber-500 text-amber-500"
+                        : "text-muted-foreground"
+                    )}
+                  />
+                </Button>
+              </bookmarkFetcher.Form>
             )}
           </div>
 
@@ -726,6 +783,7 @@ function CurriculumSidebar({
   currentLessonId,
   lessonProgressMap,
   enrolled,
+  bookmarkedLessonIds,
 }: {
   course: { id: number; title: string; slug: string };
   curriculum: Array<{
@@ -736,6 +794,7 @@ function CurriculumSidebar({
   currentLessonId: number;
   lessonProgressMap: Record<number, string>;
   enrolled: boolean;
+  bookmarkedLessonIds: Set<number>;
 }) {
   // Find which module the current lesson belongs to
   const currentModuleId = curriculum.find((m) =>
@@ -776,6 +835,9 @@ function CurriculumSidebar({
         <nav className="flex-1 p-2">
           {curriculum.map((mod) => {
             const isExpanded = expandedModules.has(mod.id);
+            const moduleHasBookmark = mod.lessons.some((l) =>
+              bookmarkedLessonIds.has(l.id)
+            );
 
             return (
               <div key={mod.id} className="mb-1">
@@ -790,6 +852,9 @@ function CurriculumSidebar({
                     )}
                   />
                   <span className="flex-1 text-left">{mod.title}</span>
+                  {moduleHasBookmark && (
+                    <Bookmark className="size-3.5 shrink-0 fill-amber-500 text-amber-500" />
+                  )}
                 </button>
 
                 {isExpanded && (
@@ -801,6 +866,7 @@ function CurriculumSidebar({
                         status === LessonProgressStatus.Completed;
                       const isInProgress =
                         status === LessonProgressStatus.InProgress;
+                      const lessonBookmarked = bookmarkedLessonIds.has(l.id);
 
                       return (
                         <li key={l.id}>
@@ -825,6 +891,9 @@ function CurriculumSidebar({
                               <Circle className="size-3.5 shrink-0" />
                             )}
                             <span className="truncate">{l.title}</span>
+                            {lessonBookmarked && (
+                              <Bookmark className="ml-auto size-3.5 shrink-0 fill-amber-500 text-amber-500" />
+                            )}
                           </Link>
                         </li>
                       );
@@ -1154,9 +1223,12 @@ function DiscussionSection({
       ? (createFetcher.data as { commentError: string }).commentError
       : null;
 
-  // Clear textarea after successful submit
-  useEffect(() => {
+  // Clear textarea after successful submit — track previous fetch state to detect transitions
+  const [prevFetcherState, setPrevFetcherState] = useState(createFetcher.state);
+  if (prevFetcherState !== createFetcher.state) {
+    setPrevFetcherState(createFetcher.state);
     if (
+      prevFetcherState !== "idle" &&
       createFetcher.state === "idle" &&
       createFetcher.data &&
       "success" in createFetcher.data &&
@@ -1164,7 +1236,7 @@ function DiscussionSection({
     ) {
       setDraft("");
     }
-  }, [createFetcher.state, createFetcher.data]);
+  }
 
   const remaining = COMMENT_MAX_LENGTH - draft.length;
   const showCounter = remaining <= 200;
@@ -1231,7 +1303,7 @@ function DiscussionSection({
 
 function CommentItem({
   comment,
-  lessonId,
+  lessonId: _lessonId,
   currentUserId,
   isAdmin,
   isCourseInstructor,
