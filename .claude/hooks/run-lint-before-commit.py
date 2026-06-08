@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: run pnpm lint and typecheck before any git commit."""
+"""PreToolUse hook: run lint-staged and typecheck before any git commit."""
 import json
 import subprocess
 import sys
@@ -16,7 +16,7 @@ def main() -> None:
     if "git commit" not in command:
         sys.exit(0)
 
-    lint = run(["pnpm", "lint"])
+    lint = run(["pnpm", "exec", "lint-staged"])
     typecheck = run(["pnpm", "typecheck"])
 
     errors = []
