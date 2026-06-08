@@ -23,13 +23,18 @@ Work through the plan step by step.
 
 ### 4. Validate
 
-Run the feedback loops and fix any issues. Repeat until both pass cleanly.
+Run the feedback loops and fix any issues. Repeat until all pass cleanly.
 
 ```
 pnpm run typecheck
 pnpm run test
+pnpm lint
 ```
 
-### 5. Commit
+### 5. Verify
 
-Once typecheck and tests pass, commit the work.
+Run `/verify` to confirm the change works end-to-end in the running app.
+
+### 6. Commit
+
+Once validate and verify pass, commit the work.
