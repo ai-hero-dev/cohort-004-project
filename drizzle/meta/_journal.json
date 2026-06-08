@@ -43,6 +43,13 @@
       "when": 1749254400000,
       "tag": "0005_add_lesson_bookmarks",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1780943347275,
+      "tag": "0006_tan_penance",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,10 @@ import { db } from "~/db";
 import {
   enrollments,
   courses,
+  users,
+  NotificationType,
 } from "~/db/schema";
+import { createNotification } from "~/services/notificationService";
 
 // ─── Enrollment Service ───
 // Handles enrollment, unenrollment, duplicate prevention, and enrollment validation.
@@ -65,6 +68,8 @@ export function enrollUser(opts: {
   sendEmail: boolean;
   skipValidation: boolean;
 }) {
+  const course = db.select().from(courses).where(eq(courses.id, opts.courseId)).get();
+
   if (!opts.skipValidation) {
     // Check if already enrolled
     const existing = findEnrollment({ userId: opts.userId, courseId: opts.courseId });
@@ -72,22 +77,28 @@ export function enrollUser(opts: {
       throw new Error("User is already enrolled in this course");
     }
 
-    // Check that the course exists
-    const course = db
-      .select()
-      .from(courses)
-      .where(eq(courses.id, opts.courseId))
-      .get();
     if (!course) {
       throw new Error("Course not found");
     }
   }
+
+  const enrollingUser = db.select().from(users).where(eq(users.id, opts.userId)).get();
 
   const enrollment = db
     .insert(enrollments)
     .values({ userId: opts.userId, courseId: opts.courseId })
     .returning()
     .get();
+
+  if (course && enrollingUser) {
+    createNotification({
+      recipientUserId: course.instructorId,
+      type: NotificationType.Enrollment,
+      title: "New Enrollment",
+      message: `${enrollingUser.name} enrolled in ${course.title}`,
+      linkUrl: `/instructor/${course.id}/students`,
+    });
+  }
 
   // sendEmail parameter accepted but not implemented (no email service — PRD out of scope)
   if (opts.sendEmail) {
