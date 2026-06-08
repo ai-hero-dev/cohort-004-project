@@ -1,5 +1,5 @@
 import { NavLink, Form } from "react-router";
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { cn } from "~/lib/utils";
 import { UserRole } from "~/db/schema";
 import type { NotificationType } from "~/db/schema";
@@ -121,13 +121,18 @@ export function Sidebar({
   unreadCount = 0,
 }: SidebarProps) {
   const currentUserRole = currentUser?.role ?? null;
-  const [isDark, setIsDark] = useState(
-    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+  const isDark = useSyncExternalStore(
+    (callback) => {
+      const observer = new MutationObserver(callback);
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+      return () => observer.disconnect();
+    },
+    () => document.documentElement.classList.contains("dark"),
+    () => false
   );
 
   function toggleDarkMode() {
     const next = !isDark;
-    setIsDark(next);
     document.documentElement.classList.toggle("dark", next);
     try {
       localStorage.setItem("cadence-theme", next ? "dark" : "light");
