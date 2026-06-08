@@ -147,7 +147,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (isUserEnrolled({ userId: currentUserId, courseId: course.id })) {
       throw redirect(`/courses/${slug}`);
     }
-    createPurchase(currentUserId, course.id, pppPrice, country);
+    createPurchase({ userId: currentUserId, courseId: course.id, pricePaid: pppPrice, country });
     enrollUser({ userId: currentUserId, courseId: course.id, sendEmail: false, skipValidation: false });
     throw redirect(`/courses/${slug}/welcome`);
   }
