@@ -124,7 +124,10 @@ export function Sidebar({
   const isDark = useSyncExternalStore(
     (callback) => {
       const observer = new MutationObserver(callback);
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
       return () => observer.disconnect();
     },
     () => document.documentElement.classList.contains("dark"),
@@ -147,8 +150,11 @@ export function Sidebar({
         <NavLink to="/" className="text-lg font-bold tracking-tight">
           Cadence
         </NavLink>
-        {currentUser?.role === UserRole.Instructor && (
-          <NotificationBell notifications={notifications} unreadCount={unreadCount} />
+        {(currentUser?.role === UserRole.Instructor || isTeamAdmin) && (
+          <NotificationBell
+            notifications={notifications}
+            unreadCount={unreadCount}
+          />
         )}
       </div>
 

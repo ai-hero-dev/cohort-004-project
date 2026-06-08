@@ -1,6 +1,16 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "~/db";
-import { coupons, purchases, enrollments } from "~/db/schema";
+import {
+  coupons,
+  purchases,
+  enrollments,
+  users,
+  courses,
+  teamMembers,
+  TeamMemberRole,
+  NotificationType,
+} from "~/db/schema";
+import { createNotification } from "~/services/notificationService";
 import crypto from "crypto";
 
 // ─── Coupon Service ───
@@ -38,15 +48,17 @@ export function getCouponByCode(code: string) {
   return db.select().from(coupons).where(eq(coupons.code, code)).get();
 }
 
-export function getCouponsForTeam(opts: {
-  teamId: number;
-  courseId?: number;
-}) {
+export function getCouponsForTeam(opts: { teamId: number; courseId?: number }) {
   if (opts.courseId !== undefined) {
     return db
       .select()
       .from(coupons)
-      .where(and(eq(coupons.teamId, opts.teamId), eq(coupons.courseId, opts.courseId)))
+      .where(
+        and(
+          eq(coupons.teamId, opts.teamId),
+          eq(coupons.courseId, opts.courseId)
+        )
+      )
       .all();
   }
   return db.select().from(coupons).where(eq(coupons.teamId, opts.teamId)).all();
@@ -117,6 +129,48 @@ export function redeemCoupon(opts: {
     .values({ userId: opts.userId, courseId: coupon.courseId })
     .returning()
     .get();
+
+  // Notify all team admins of the redemption
+  const redeemerUser = db
+    .select()
+    .from(users)
+    .where(eq(users.id, opts.userId))
+    .get();
+  const courseRecord = db
+    .select()
+    .from(courses)
+    .where(eq(courses.id, coupon.courseId))
+    .get();
+  const allCoupons = getCouponsForTeam({
+    teamId: coupon.teamId,
+    courseId: coupon.courseId,
+  });
+  const totalSeats = allCoupons.length;
+  const remainingSeats = allCoupons.filter(
+    (c) => c.redeemedByUserId === null
+  ).length;
+  const admins = db
+    .select()
+    .from(teamMembers)
+    .where(
+      and(
+        eq(teamMembers.teamId, coupon.teamId),
+        eq(teamMembers.role, TeamMemberRole.Admin)
+      )
+    )
+    .all();
+
+  if (redeemerUser && courseRecord) {
+    for (const admin of admins) {
+      createNotification({
+        recipientUserId: admin.userId,
+        type: NotificationType.CouponRedemption,
+        title: "Seat Claimed",
+        message: `${redeemerUser.name} redeemed a coupon for ${courseRecord.title} (${remainingSeats} of ${totalSeats} seats remaining)`,
+        linkUrl: "/team",
+      });
+    }
+  }
 
   return { ok: true, enrollment };
 }
