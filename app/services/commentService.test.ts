@@ -27,13 +27,13 @@ describe("commentService", () => {
     testDb = createTestDb();
     base = seedBaseData(testDb);
     const mod = createModule(base.course.id, "Test Module", 1);
-    const lesson = createLesson(mod.id, "L1", null, null, 1, null);
+    const lesson = createLesson({ moduleId: mod.id, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
     lessonId = lesson.id;
   });
 
   describe("createComment", () => {
     it("creates a comment with trimmed content", () => {
-      const c = createComment(lessonId, base.user.id, "  hello  ");
+      const c = createComment({ lessonId, userId: base.user.id, content: "  hello  " });
       expect(c.content).toBe("hello");
       expect(c.lessonId).toBe(lessonId);
       expect(c.userId).toBe(base.user.id);
@@ -41,19 +41,19 @@ describe("commentService", () => {
     });
 
     it("rejects empty content", () => {
-      expect(() => createComment(lessonId, base.user.id, "   ")).toThrow();
+      expect(() => createComment({ lessonId, userId: base.user.id, content: "   " })).toThrow();
     });
 
     it("rejects content over the limit", () => {
       const long = "a".repeat(COMMENT_MAX_LENGTH + 1);
-      expect(() => createComment(lessonId, base.user.id, long)).toThrow();
+      expect(() => createComment({ lessonId, userId: base.user.id, content: long })).toThrow();
     });
   });
 
   describe("listCommentsForLesson", () => {
     it("returns comments oldest-first with author info", () => {
-      const a = createComment(lessonId, base.user.id, "first");
-      const b = createComment(lessonId, base.instructor.id, "second");
+      const a = createComment({ lessonId, userId: base.user.id, content: "first" });
+      const b = createComment({ lessonId, userId: base.instructor.id, content: "second" });
 
       const list = listCommentsForLesson(lessonId);
       expect(list.map((c) => c.id)).toEqual([a.id, b.id]);
@@ -62,8 +62,8 @@ describe("commentService", () => {
     });
 
     it("includes soft-deleted comments (renderable as [deleted])", () => {
-      const c = createComment(lessonId, base.user.id, "oops");
-      softDeleteComment(c.id, base.user.id, schema.UserRole.Student);
+      const c = createComment({ lessonId, userId: base.user.id, content: "oops" });
+      softDeleteComment({ commentId: c.id, actingUserId: base.user.id, actingUserRole: schema.UserRole.Student });
       const list = listCommentsForLesson(lessonId);
       expect(list).toHaveLength(1);
       expect(list[0].deletedAt).not.toBeNull();
@@ -72,18 +72,18 @@ describe("commentService", () => {
 
   describe("softDeleteComment", () => {
     it("lets author delete own comment", () => {
-      const c = createComment(lessonId, base.user.id, "mine");
-      const res = softDeleteComment(c.id, base.user.id, schema.UserRole.Student);
+      const c = createComment({ lessonId, userId: base.user.id, content: "mine" });
+      const res = softDeleteComment({ commentId: c.id, actingUserId: base.user.id, actingUserRole: schema.UserRole.Student });
       expect(res?.deletedAt).not.toBeNull();
     });
 
     it("lets the course instructor delete any comment on the lesson", () => {
-      const c = createComment(lessonId, base.user.id, "mine");
-      const res = softDeleteComment(
-        c.id,
-        base.instructor.id,
-        schema.UserRole.Instructor
-      );
+      const c = createComment({ lessonId, userId: base.user.id, content: "mine" });
+      const res = softDeleteComment({
+        commentId: c.id,
+        actingUserId: base.instructor.id,
+        actingUserRole: schema.UserRole.Instructor,
+      });
       expect(res?.deletedAt).not.toBeNull();
     });
 
@@ -97,8 +97,8 @@ describe("commentService", () => {
         })
         .returning()
         .get();
-      const c = createComment(lessonId, base.user.id, "mine");
-      const res = softDeleteComment(c.id, admin.id, schema.UserRole.Admin);
+      const c = createComment({ lessonId, userId: base.user.id, content: "mine" });
+      const res = softDeleteComment({ commentId: c.id, actingUserId: admin.id, actingUserRole: schema.UserRole.Admin });
       expect(res?.deletedAt).not.toBeNull();
     });
 
@@ -112,13 +112,13 @@ describe("commentService", () => {
         })
         .returning()
         .get();
-      const c = createComment(lessonId, base.user.id, "mine");
-      const res = softDeleteComment(c.id, other.id, schema.UserRole.Student);
+      const c = createComment({ lessonId, userId: base.user.id, content: "mine" });
+      const res = softDeleteComment({ commentId: c.id, actingUserId: other.id, actingUserRole: schema.UserRole.Student });
       expect(res).toBeNull();
     });
 
     it("returns null for unknown comment", () => {
-      const res = softDeleteComment(999999, base.user.id, schema.UserRole.Student);
+      const res = softDeleteComment({ commentId: 999999, actingUserId: base.user.id, actingUserRole: schema.UserRole.Student });
       expect(res).toBeNull();
     });
   });

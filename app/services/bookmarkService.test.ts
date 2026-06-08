@@ -26,8 +26,8 @@ describe("bookmarkService", () => {
     testDb = createTestDb();
     base = seedBaseData(testDb);
     const mod = createModule(base.course.id, "Test Module", 1);
-    const lesson = createLesson(mod.id, "L1", null, null, 1, null);
-    const otherLesson = createLesson(mod.id, "L2", null, null, 2, null);
+    const lesson = createLesson({ moduleId: mod.id, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+    const otherLesson = createLesson({ moduleId: mod.id, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
     lessonId = lesson.id;
     otherLessonId = otherLesson.id;
   });

@@ -38,14 +38,14 @@ describe("courseService", () => {
 
   describe("createCourse", () => {
     it("creates a course with draft status", () => {
-      const course = createCourse(
-        "New Course",
-        "new-course",
-        "A brand new course",
-        base.instructor.id,
-        base.category.id,
-        null
-      );
+      const course = createCourse({
+        title: "New Course",
+        slug: "new-course",
+        description: "A brand new course",
+        instructorId: base.instructor.id,
+        categoryId: base.category.id,
+        coverImageUrl: null,
+      });
 
       expect(course).toBeDefined();
       expect(course.title).toBe("New Course");
@@ -58,14 +58,14 @@ describe("courseService", () => {
     });
 
     it("creates a course with a cover image URL", () => {
-      const course = createCourse(
-        "With Image",
-        "with-image",
-        "Has a cover",
-        base.instructor.id,
-        base.category.id,
-        "https://example.com/cover.jpg"
-      );
+      const course = createCourse({
+        title: "With Image",
+        slug: "with-image",
+        description: "Has a cover",
+        instructorId: base.instructor.id,
+        categoryId: base.category.id,
+        coverImageUrl: "https://example.com/cover.jpg",
+      });
 
       expect(course.coverImageUrl).toBe("https://example.com/cover.jpg");
     });
@@ -104,7 +104,7 @@ describe("courseService", () => {
     });
 
     it("returns multiple courses", () => {
-      createCourse("Second", "second", "desc", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Second", slug: "second", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
       const all = getAllCourses();
       expect(all).toHaveLength(2);
     });
@@ -112,7 +112,7 @@ describe("courseService", () => {
 
   describe("updateCourse", () => {
     it("updates title and description", () => {
-      const updated = updateCourse(base.course.id, "Updated Title", "Updated description");
+      const updated = updateCourse({ id: base.course.id, title: "Updated Title", description: "Updated description" });
 
       expect(updated).toBeDefined();
       expect(updated!.title).toBe("Updated Title");
@@ -121,7 +121,7 @@ describe("courseService", () => {
 
     it("sets updatedAt to a new timestamp", () => {
       const _before = getCourseById(base.course.id)!.updatedAt;
-      const updated = updateCourse(base.course.id, "New Title", "New desc");
+      const updated = updateCourse({ id: base.course.id, title: "New Title", description: "New desc" });
 
       expect(updated!.updatedAt).toBeDefined();
       // updatedAt should be set (may or may not differ in fast tests, but should exist)
@@ -188,7 +188,7 @@ describe("courseService", () => {
 
   describe("getPublishedCourses", () => {
     it("returns only published courses", () => {
-      createCourse("Draft", "draft", "desc", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Draft", slug: "draft", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
       // base.course is published, new course is draft
       const published = getPublishedCourses();
       expect(published).toHaveLength(1);
@@ -206,7 +206,7 @@ describe("courseService", () => {
     });
 
     it("transitions from draft to published", () => {
-      const draft = createCourse("Draft", "draft", "desc", base.instructor.id, base.category.id, null);
+      const draft = createCourse({ title: "Draft", slug: "draft", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
       const result = updateCourseStatus(draft.id, schema.CourseStatus.Published);
       expect(result!.status).toBe(schema.CourseStatus.Published);
     });
@@ -226,7 +226,7 @@ describe("courseService", () => {
 
   describe("buildCourseQuery", () => {
     it("returns all courses when no filters applied", () => {
-      const results = buildCourseQuery(null, null, null, null, 10, 0);
+      const results = buildCourseQuery({ search: null, category: null, status: null, sortBy: null, limit: 10, offset: 0 });
       expect(results).toHaveLength(1);
       expect(results[0].title).toBe("Test Course");
       expect(results[0].instructorName).toBe("Test Instructor");
@@ -234,9 +234,9 @@ describe("courseService", () => {
     });
 
     it("filters by search term in title", () => {
-      createCourse("JavaScript Basics", "js-basics", "Learn JS", base.instructor.id, base.category.id, null);
+      createCourse({ title: "JavaScript Basics", slug: "js-basics", description: "Learn JS", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
 
-      const results = buildCourseQuery("JavaScript", null, null, null, 10, 0);
+      const results = buildCourseQuery({ search: "JavaScript", category: null, status: null, sortBy: null, limit: 10, offset: 0 });
       // Only the draft JS course, not the published Test Course
       // Actually buildCourseQuery doesn't filter by status by default, so search matches title
       expect(results.some((r) => r.title === "JavaScript Basics")).toBe(true);
@@ -244,21 +244,21 @@ describe("courseService", () => {
     });
 
     it("filters by search term in description", () => {
-      createCourse("Intro", "intro", "Learn Python programming", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Intro", slug: "intro", description: "Learn Python programming", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
 
-      const results = buildCourseQuery("Python", null, null, null, 10, 0);
+      const results = buildCourseQuery({ search: "Python", category: null, status: null, sortBy: null, limit: 10, offset: 0 });
       expect(results).toHaveLength(1);
       expect(results[0].title).toBe("Intro");
     });
 
     it("filters by status", () => {
-      createCourse("Draft", "draft-c", "desc", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Draft", slug: "draft-c", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
 
-      const published = buildCourseQuery(null, null, schema.CourseStatus.Published, null, 10, 0);
+      const published = buildCourseQuery({ search: null, category: null, status: schema.CourseStatus.Published, sortBy: null, limit: 10, offset: 0 });
       expect(published).toHaveLength(1);
       expect(published[0].status).toBe(schema.CourseStatus.Published);
 
-      const drafts = buildCourseQuery(null, null, schema.CourseStatus.Draft, null, 10, 0);
+      const drafts = buildCourseQuery({ search: null, category: null, status: schema.CourseStatus.Draft, sortBy: null, limit: 10, offset: 0 });
       expect(drafts).toHaveLength(1);
       expect(drafts[0].status).toBe(schema.CourseStatus.Draft);
     });
@@ -269,48 +269,48 @@ describe("courseService", () => {
         .values({ name: "Design", slug: "design" })
         .returning()
         .get();
-      createCourse("Design 101", "design-101", "desc", base.instructor.id, designCat.id, null);
+      createCourse({ title: "Design 101", slug: "design-101", description: "desc", instructorId: base.instructor.id, categoryId: designCat.id, coverImageUrl: null });
 
-      const results = buildCourseQuery(null, "design", null, null, 10, 0);
+      const results = buildCourseQuery({ search: null, category: "design", status: null, sortBy: null, limit: 10, offset: 0 });
       expect(results).toHaveLength(1);
       expect(results[0].title).toBe("Design 101");
     });
 
     it("combines search and status filters", () => {
-      createCourse("Test Draft", "test-draft", "desc", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Test Draft", slug: "test-draft", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
 
-      const results = buildCourseQuery("Test", null, schema.CourseStatus.Published, null, 10, 0);
+      const results = buildCourseQuery({ search: "Test", category: null, status: schema.CourseStatus.Published, sortBy: null, limit: 10, offset: 0 });
       expect(results).toHaveLength(1);
       expect(results[0].title).toBe("Test Course");
     });
 
     it("respects limit", () => {
-      createCourse("Second", "second", "desc", base.instructor.id, base.category.id, null);
-      createCourse("Third", "third", "desc", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Second", slug: "second", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
+      createCourse({ title: "Third", slug: "third", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
 
-      const results = buildCourseQuery(null, null, null, null, 2, 0);
+      const results = buildCourseQuery({ search: null, category: null, status: null, sortBy: null, limit: 2, offset: 0 });
       expect(results).toHaveLength(2);
     });
 
     it("respects offset", () => {
-      createCourse("Second", "second", "desc", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Second", slug: "second", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
 
-      const all = buildCourseQuery(null, null, null, null, 10, 0);
-      const offset = buildCourseQuery(null, null, null, null, 10, 1);
+      const all = buildCourseQuery({ search: null, category: null, status: null, sortBy: null, limit: 10, offset: 0 });
+      const offset = buildCourseQuery({ search: null, category: null, status: null, sortBy: null, limit: 10, offset: 1 });
       expect(offset).toHaveLength(all.length - 1);
     });
 
     it("sorts by title", () => {
-      createCourse("Alpha Course", "alpha", "desc", base.instructor.id, base.category.id, null);
-      createCourse("Zeta Course", "zeta", "desc", base.instructor.id, base.category.id, null);
+      createCourse({ title: "Alpha Course", slug: "alpha", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
+      createCourse({ title: "Zeta Course", slug: "zeta", description: "desc", instructorId: base.instructor.id, categoryId: base.category.id, coverImageUrl: null });
 
-      const results = buildCourseQuery(null, null, null, "title", 10, 0);
+      const results = buildCourseQuery({ search: null, category: null, status: null, sortBy: "title", limit: 10, offset: 0 });
       expect(results[0].title).toBe("Alpha Course");
       expect(results[results.length - 1].title).toBe("Zeta Course");
     });
 
     it("returns empty array when no courses match", () => {
-      const results = buildCourseQuery("nonexistent-query-xyz", null, null, null, 10, 0);
+      const results = buildCourseQuery({ search: "nonexistent-query-xyz", category: null, status: null, sortBy: null, limit: 10, offset: 0 });
       expect(results).toHaveLength(0);
     });
   });

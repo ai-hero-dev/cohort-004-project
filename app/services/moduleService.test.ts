@@ -94,8 +94,8 @@ describe("moduleService", () => {
   describe("getModuleWithLessons", () => {
     it("returns module with its lessons ordered by position", () => {
       const mod = createModule(base.course.id, "Module A", 1);
-      createLesson(mod.id, "Lesson 2", null, null, 2, null);
-      createLesson(mod.id, "Lesson 1", null, null, 1, null);
+      createLesson({ moduleId: mod.id, title: "Lesson 2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      createLesson({ moduleId: mod.id, title: "Lesson 1", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
       const result = getModuleWithLessons(mod.id);
       expect(result).toBeDefined();
@@ -123,8 +123,8 @@ describe("moduleService", () => {
   describe("deleteModule", () => {
     it("deletes a module and its lessons", () => {
       const mod = createModule(base.course.id, "To Delete", 1);
-      createLesson(mod.id, "Lesson 1", null, null, 1, null);
-      createLesson(mod.id, "Lesson 2", null, null, 2, null);
+      createLesson({ moduleId: mod.id, title: "Lesson 1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      createLesson({ moduleId: mod.id, title: "Lesson 2", content: null, videoUrl: null, position: 2, durationMinutes: null });
 
       const deleted = deleteModule(mod.id);
       expect(deleted).toBeDefined();
@@ -155,7 +155,7 @@ describe("moduleService", () => {
       const _m2 = createModule(base.course.id, "M2", 2);
       const _m3 = createModule(base.course.id, "M3", 3);
 
-      const moved = moveModuleToPosition(m1.id, 3);
+      const moved = moveModuleToPosition({ moduleId: m1.id, newPosition: 3 });
       expect(moved!.position).toBe(3);
 
       // M2 and M3 should have shifted up
@@ -173,7 +173,7 @@ describe("moduleService", () => {
       const _m2 = createModule(base.course.id, "M2", 2);
       const m3 = createModule(base.course.id, "M3", 3);
 
-      const moved = moveModuleToPosition(m3.id, 1);
+      const moved = moveModuleToPosition({ moduleId: m3.id, newPosition: 1 });
       expect(moved!.position).toBe(1);
 
       const mods = getModulesByCourse(base.course.id);
@@ -188,12 +188,12 @@ describe("moduleService", () => {
     it("returns module unchanged when moving to same position", () => {
       const m1 = createModule(base.course.id, "M1", 1);
 
-      const result = moveModuleToPosition(m1.id, 1);
+      const result = moveModuleToPosition({ moduleId: m1.id, newPosition: 1 });
       expect(result!.position).toBe(1);
     });
 
     it("returns null for non-existent module", () => {
-      expect(moveModuleToPosition(9999, 1)).toBeNull();
+      expect(moveModuleToPosition({ moduleId: 9999, newPosition: 1 })).toBeNull();
     });
 
     it("moves a module to middle position (1 → 2 of 3)", () => {
@@ -201,7 +201,7 @@ describe("moduleService", () => {
       const _m2 = createModule(base.course.id, "M2", 2);
       const _m3 = createModule(base.course.id, "M3", 3);
 
-      moveModuleToPosition(m1.id, 2);
+      moveModuleToPosition({ moduleId: m1.id, newPosition: 2 });
 
       const mods = getModulesByCourse(base.course.id);
       expect(mods[0].title).toBe("M2");
@@ -217,7 +217,7 @@ describe("moduleService", () => {
       const m2 = createModule(base.course.id, "M2", 2);
       const _m3 = createModule(base.course.id, "M3", 3);
 
-      moveModuleToPosition(m2.id, 1);
+      moveModuleToPosition({ moduleId: m2.id, newPosition: 1 });
 
       const mods = getModulesByCourse(base.course.id);
       expect(mods[0].title).toBe("M2");
@@ -247,7 +247,7 @@ describe("moduleService", () => {
       const _m2 = createModule(base.course.id, "M2", 2);
       const other = createModule(course2.id, "Other M1", 1);
 
-      moveModuleToPosition(m1.id, 2);
+      moveModuleToPosition({ moduleId: m1.id, newPosition: 2 });
 
       // Other course's module should be untouched
       const otherMod = getModuleById(other.id);
@@ -260,7 +260,7 @@ describe("moduleService", () => {
       const m1 = createModule(base.course.id, "M1", 1);
       const m2 = createModule(base.course.id, "M2", 2);
 
-      const result = swapModulePositions(m1.id, m2.id);
+      const result = swapModulePositions({ moduleIdA: m1.id, moduleIdB: m2.id });
       expect(result).toBeDefined();
       expect(result!.a.position).toBe(2);
       expect(result!.b.position).toBe(1);
@@ -275,7 +275,7 @@ describe("moduleService", () => {
       const _m2 = createModule(base.course.id, "M2", 2);
       const m3 = createModule(base.course.id, "M3", 3);
 
-      swapModulePositions(m1.id, m3.id);
+      swapModulePositions({ moduleIdA: m1.id, moduleIdB: m3.id });
 
       const mods = getModulesByCourse(base.course.id);
       expect(mods[0].title).toBe("M3");
@@ -289,13 +289,13 @@ describe("moduleService", () => {
     it("returns null when first module does not exist", () => {
       const m1 = createModule(base.course.id, "M1", 1);
 
-      expect(swapModulePositions(9999, m1.id)).toBeNull();
+      expect(swapModulePositions({ moduleIdA: 9999, moduleIdB: m1.id })).toBeNull();
     });
 
     it("returns null when second module does not exist", () => {
       const m1 = createModule(base.course.id, "M1", 1);
 
-      expect(swapModulePositions(m1.id, 9999)).toBeNull();
+      expect(swapModulePositions({ moduleIdA: m1.id, moduleIdB: 9999 })).toBeNull();
     });
   });
 

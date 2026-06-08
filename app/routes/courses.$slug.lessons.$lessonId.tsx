@@ -202,12 +202,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (enrolled && currentUserId) {
     const purchase = findPurchase({ userId: currentUserId, courseId: course.id });
     const currentCountry = await resolveCountry(request);
-    const pppResult = checkPppAccess(
-      course.price,
-      course.pppEnabled,
-      purchase?.country ?? null,
-      currentCountry
-    );
+    const pppResult = checkPppAccess({
+      coursePrice: course.price,
+      coursePppEnabled: course.pppEnabled,
+      purchaseCountry: purchase?.country ?? null,
+      currentCountry,
+    });
     pppBlocked = pppResult.blocked;
     pppBlockedCountry = pppResult.blockedCountry;
     pppPurchaseCountry = pppResult.purchaseCountry;

@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: run pnpm lint before any git commit."""
+"""PreToolUse hook: run pnpm lint and typecheck before any git commit."""
 import json
 import subprocess
 import sys
+
+
+def run(cmd: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def main() -> None:
@@ -12,23 +16,22 @@ def main() -> None:
     if "git commit" not in command:
         sys.exit(0)
 
-    result = subprocess.run(
-        ["pnpm", "lint"],
-        capture_output=True,
-        text=True,
-    )
+    lint = run(["pnpm", "lint"])
+    typecheck = run(["pnpm", "typecheck"])
 
-    if result.returncode == 0:
+    errors = []
+    if lint.returncode != 0:
+        errors.append("Lint errors:\n" + lint.stdout + lint.stderr)
+    if typecheck.returncode != 0:
+        errors.append("Type errors:\n" + typecheck.stdout + typecheck.stderr)
+
+    if not errors:
         sys.exit(0)
 
     print(
         json.dumps({
             "decision": "block",
-            "reason": (
-                "Linter errors found — fix them before committing.\n\n"
-                + result.stdout
-                + result.stderr
-            ),
+            "reason": "Fix errors before committing.\n\n" + "\n\n".join(errors),
         })
     )
     sys.exit(0)

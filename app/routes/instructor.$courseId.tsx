@@ -285,7 +285,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     if (!mod || mod.courseId !== courseId) {
       return data({ error: "Module not found in this course." }, { status: 404 });
     }
-    createLesson(moduleId, title, null, null, null, null);
+    createLesson({ moduleId, title, content: null, videoUrl: null, position: null, durationMinutes: null });
     return { success: true, field: "lesson" };
   }
 

@@ -69,7 +69,7 @@ describe("couponService", () => {
     it("generates the requested number of coupons", () => {
       const { team, purchase } = setupTeamAndPurchase();
 
-      const result = generateCoupons(team.id, base.course.id, purchase.id, 5);
+      const result = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 5 });
 
       expect(result).toHaveLength(5);
     });
@@ -77,7 +77,7 @@ describe("couponService", () => {
     it("generates unique codes for each coupon", () => {
       const { team, purchase } = setupTeamAndPurchase();
 
-      const result = generateCoupons(team.id, base.course.id, purchase.id, 10);
+      const result = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 10 });
       const codes = result.map((c) => c.code);
       const uniqueCodes = new Set(codes);
 
@@ -87,7 +87,7 @@ describe("couponService", () => {
     it("associates coupons with the correct team, course, and purchase", () => {
       const { team, purchase } = setupTeamAndPurchase();
 
-      const result = generateCoupons(team.id, base.course.id, purchase.id, 1);
+      const result = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 1 });
 
       expect(result[0].teamId).toBe(team.id);
       expect(result[0].courseId).toBe(base.course.id);
@@ -100,7 +100,7 @@ describe("couponService", () => {
   describe("getCouponByCode", () => {
     it("returns a coupon by its code", () => {
       const { team, purchase } = setupTeamAndPurchase();
-      const [coupon] = generateCoupons(team.id, base.course.id, purchase.id, 1);
+      const [coupon] = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 1 });
 
       const found = getCouponByCode(coupon.code);
 
@@ -118,9 +118,9 @@ describe("couponService", () => {
   describe("getCouponsForTeam", () => {
     it("returns all coupons for a team", () => {
       const { team, purchase } = setupTeamAndPurchase();
-      generateCoupons(team.id, base.course.id, purchase.id, 3);
+      generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 3 });
 
-      const result = getCouponsForTeam(team.id);
+      const result = getCouponsForTeam({ teamId: team.id });
 
       expect(result).toHaveLength(3);
     });
@@ -153,16 +153,16 @@ describe("couponService", () => {
         .returning()
         .get();
 
-      generateCoupons(team.id, base.course.id, purchase.id, 3);
-      generateCoupons(team.id, course2.id, purchase2.id, 2);
+      generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 3 });
+      generateCoupons({ teamId: team.id, courseId: course2.id, purchaseId: purchase2.id, quantity: 2 });
 
-      const filtered = getCouponsForTeam(team.id, base.course.id);
+      const filtered = getCouponsForTeam({ teamId: team.id, courseId: base.course.id });
       expect(filtered).toHaveLength(3);
 
-      const filtered2 = getCouponsForTeam(team.id, course2.id);
+      const filtered2 = getCouponsForTeam({ teamId: team.id, courseId: course2.id });
       expect(filtered2).toHaveLength(2);
 
-      const all = getCouponsForTeam(team.id);
+      const all = getCouponsForTeam({ teamId: team.id });
       expect(all).toHaveLength(5);
     });
   });
@@ -170,10 +170,10 @@ describe("couponService", () => {
   describe("redeemCoupon", () => {
     it("redeems a valid coupon and enrolls the user", () => {
       const { team, purchase } = setupTeamAndPurchase();
-      const [coupon] = generateCoupons(team.id, base.course.id, purchase.id, 1);
+      const [coupon] = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 1 });
       const redeemer = createRedeemer();
 
-      const result = redeemCoupon(coupon.code, redeemer.id, "US");
+      const result = redeemCoupon({ code: coupon.code, userId: redeemer.id, userCountry: "US" });
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -188,7 +188,7 @@ describe("couponService", () => {
     });
 
     it("rejects redemption of a nonexistent code", () => {
-      const result = redeemCoupon("nonexistent-code", 999, "US");
+      const result = redeemCoupon({ code: "nonexistent-code", userId: 999, userCountry: "US" });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -198,11 +198,11 @@ describe("couponService", () => {
 
     it("rejects redemption of an already-consumed coupon", () => {
       const { team, purchase } = setupTeamAndPurchase();
-      const [coupon] = generateCoupons(team.id, base.course.id, purchase.id, 1);
+      const [coupon] = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 1 });
       const redeemer = createRedeemer();
 
       // First redemption succeeds
-      redeemCoupon(coupon.code, redeemer.id, "US");
+      redeemCoupon({ code: coupon.code, userId: redeemer.id, userCountry: "US" });
 
       // Second redemption (different user) fails
       const anotherUser = testDb
@@ -215,7 +215,7 @@ describe("couponService", () => {
         .returning()
         .get();
 
-      const result = redeemCoupon(coupon.code, anotherUser.id, "US");
+      const result = redeemCoupon({ code: coupon.code, userId: anotherUser.id, userCountry: "US" });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -225,7 +225,7 @@ describe("couponService", () => {
 
     it("rejects redemption when user is already enrolled (coupon stays unconsumed)", () => {
       const { team, purchase } = setupTeamAndPurchase();
-      const [coupon] = generateCoupons(team.id, base.course.id, purchase.id, 1);
+      const [coupon] = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 1 });
       const redeemer = createRedeemer();
 
       // Enroll the user first (outside the coupon flow)
@@ -234,7 +234,7 @@ describe("couponService", () => {
         .values({ userId: redeemer.id, courseId: base.course.id })
         .run();
 
-      const result = redeemCoupon(coupon.code, redeemer.id, "US");
+      const result = redeemCoupon({ code: coupon.code, userId: redeemer.id, userCountry: "US" });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -248,10 +248,10 @@ describe("couponService", () => {
 
     it("rejects redemption from a different country", () => {
       const { team, purchase } = setupTeamAndPurchase("US");
-      const [coupon] = generateCoupons(team.id, base.course.id, purchase.id, 1);
+      const [coupon] = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 1 });
       const redeemer = createRedeemer();
 
-      const result = redeemCoupon(coupon.code, redeemer.id, "PL");
+      const result = redeemCoupon({ code: coupon.code, userId: redeemer.id, userCountry: "PL" });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -267,10 +267,10 @@ describe("couponService", () => {
 
     it("allows redemption when purchase has no country set", () => {
       const { team, purchase } = setupTeamAndPurchase(null);
-      const [coupon] = generateCoupons(team.id, base.course.id, purchase.id, 1);
+      const [coupon] = generateCoupons({ teamId: team.id, courseId: base.course.id, purchaseId: purchase.id, quantity: 1 });
       const redeemer = createRedeemer();
 
-      const result = redeemCoupon(coupon.code, redeemer.id, "PL");
+      const result = redeemCoupon({ code: coupon.code, userId: redeemer.id, userCountry: "PL" });
 
       expect(result.ok).toBe(true);
     });

@@ -42,7 +42,7 @@ describe("lessonService", () => {
 
   describe("createLesson", () => {
     it("creates a lesson with explicit position", () => {
-      const lesson = createLesson(moduleId, "Lesson 1", "Some content", null, 1, 30);
+      const lesson = createLesson({ moduleId, title: "Lesson 1", content: "Some content", videoUrl: null, position: 1, durationMinutes: 30 });
 
       expect(lesson).toBeDefined();
       expect(lesson.title).toBe("Lesson 1");
@@ -53,27 +53,27 @@ describe("lessonService", () => {
     });
 
     it("auto-calculates position when null", () => {
-      createLesson(moduleId, "Lesson 1", null, null, null, null);
-      const l2 = createLesson(moduleId, "Lesson 2", null, null, null, null);
+      createLesson({ moduleId, title: "Lesson 1", content: null, videoUrl: null, position: null, durationMinutes: null });
+      const l2 = createLesson({ moduleId, title: "Lesson 2", content: null, videoUrl: null, position: null, durationMinutes: null });
 
       expect(l2.position).toBe(2);
     });
 
     it("starts auto position at 1 for empty module", () => {
-      const lesson = createLesson(moduleId, "First", null, null, null, null);
+      const lesson = createLesson({ moduleId, title: "First", content: null, videoUrl: null, position: null, durationMinutes: null });
 
       expect(lesson.position).toBe(1);
     });
 
     it("creates a lesson with video URL", () => {
-      const lesson = createLesson(
+      const lesson = createLesson({
         moduleId,
-        "Video Lesson",
-        null,
-        "https://youtube.com/watch?v=abc123",
-        1,
-        null
-      );
+        title: "Video Lesson",
+        content: null,
+        videoUrl: "https://youtube.com/watch?v=abc123",
+        position: 1,
+        durationMinutes: null,
+      });
 
       expect(lesson.videoUrl).toBe("https://youtube.com/watch?v=abc123");
     });
@@ -81,7 +81,7 @@ describe("lessonService", () => {
 
   describe("getLessonById", () => {
     it("returns a lesson by id", () => {
-      const created = createLesson(moduleId, "Find Me", null, null, 1, null);
+      const created = createLesson({ moduleId, title: "Find Me", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
       const found = getLessonById(created.id);
       expect(found).toBeDefined();
@@ -95,9 +95,9 @@ describe("lessonService", () => {
 
   describe("getLessonsByModule", () => {
     it("returns lessons ordered by position", () => {
-      createLesson(moduleId, "Third", null, null, 3, null);
-      createLesson(moduleId, "First", null, null, 1, null);
-      createLesson(moduleId, "Second", null, null, 2, null);
+      createLesson({ moduleId, title: "Third", content: null, videoUrl: null, position: 3, durationMinutes: null });
+      createLesson({ moduleId, title: "First", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      createLesson({ moduleId, title: "Second", content: null, videoUrl: null, position: 2, durationMinutes: null });
 
       const lessons = getLessonsByModule(moduleId);
       expect(lessons).toHaveLength(3);
@@ -113,8 +113,8 @@ describe("lessonService", () => {
 
   describe("getLessonCount", () => {
     it("returns the number of lessons in a module", () => {
-      createLesson(moduleId, "L1", null, null, 1, null);
-      createLesson(moduleId, "L2", null, null, 2, null);
+      createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
 
       expect(getLessonCount(moduleId)).toBe(2);
     });
@@ -126,25 +126,25 @@ describe("lessonService", () => {
 
   describe("updateLesson", () => {
     it("updates title when provided", () => {
-      const lesson = createLesson(moduleId, "Old", "old content", null, 1, 10);
+      const lesson = createLesson({ moduleId, title: "Old", content: "old content", videoUrl: null, position: 1, durationMinutes: 10 });
 
-      const updated = updateLesson(lesson.id, "New Title", null, null, null);
+      const updated = updateLesson({ id: lesson.id, title: "New Title", content: null, videoUrl: null, durationMinutes: null });
       expect(updated!.title).toBe("New Title");
       expect(updated!.content).toBe("old content"); // unchanged
     });
 
     it("updates content when provided", () => {
-      const lesson = createLesson(moduleId, "Title", "old content", null, 1, null);
+      const lesson = createLesson({ moduleId, title: "Title", content: "old content", videoUrl: null, position: 1, durationMinutes: null });
 
-      const updated = updateLesson(lesson.id, null, "new content", null, null);
+      const updated = updateLesson({ id: lesson.id, title: null, content: "new content", videoUrl: null, durationMinutes: null });
       expect(updated!.content).toBe("new content");
       expect(updated!.title).toBe("Title"); // unchanged
     });
 
     it("updates multiple fields at once", () => {
-      const lesson = createLesson(moduleId, "Old", null, null, 1, null);
+      const lesson = createLesson({ moduleId, title: "Old", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
-      const updated = updateLesson(lesson.id, "New", "some content", "https://yt.com", 45);
+      const updated = updateLesson({ id: lesson.id, title: "New", content: "some content", videoUrl: "https://yt.com", durationMinutes: 45 });
       expect(updated!.title).toBe("New");
       expect(updated!.content).toBe("some content");
       expect(updated!.videoUrl).toBe("https://yt.com");
@@ -152,9 +152,9 @@ describe("lessonService", () => {
     });
 
     it("returns lesson unchanged when all fields are null", () => {
-      const lesson = createLesson(moduleId, "Same", "same content", null, 1, 10);
+      const lesson = createLesson({ moduleId, title: "Same", content: "same content", videoUrl: null, position: 1, durationMinutes: 10 });
 
-      const result = updateLesson(lesson.id, null, null, null, null);
+      const result = updateLesson({ id: lesson.id, title: null, content: null, videoUrl: null, durationMinutes: null });
       expect(result!.title).toBe("Same");
       expect(result!.content).toBe("same content");
     });
@@ -162,7 +162,7 @@ describe("lessonService", () => {
 
   describe("updateLessonTitle", () => {
     it("updates just the title", () => {
-      const lesson = createLesson(moduleId, "Old Title", null, null, 1, null);
+      const lesson = createLesson({ moduleId, title: "Old Title", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
       const updated = updateLessonTitle(lesson.id, "New Title");
       expect(updated!.title).toBe("New Title");
@@ -171,7 +171,7 @@ describe("lessonService", () => {
 
   describe("updateLessonContent", () => {
     it("updates just the content", () => {
-      const lesson = createLesson(moduleId, "Title", "old content", null, 1, null);
+      const lesson = createLesson({ moduleId, title: "Title", content: "old content", videoUrl: null, position: 1, durationMinutes: null });
 
       const updated = updateLessonContent(lesson.id, "new content");
       expect(updated!.content).toBe("new content");
@@ -180,7 +180,7 @@ describe("lessonService", () => {
 
   describe("deleteLesson", () => {
     it("deletes a lesson", () => {
-      const lesson = createLesson(moduleId, "Delete Me", null, null, 1, null);
+      const lesson = createLesson({ moduleId, title: "Delete Me", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
       const deleted = deleteLesson(lesson.id);
       expect(deleted).toBeDefined();
@@ -194,11 +194,11 @@ describe("lessonService", () => {
 
   describe("moveLessonToPosition", () => {
     it("moves a lesson down (position 1 → 3)", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const _l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const _l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      const _l3 = createLesson({ moduleId, title: "L3", content: null, videoUrl: null, position: 3, durationMinutes: null });
 
-      const moved = moveLessonToPosition(l1.id, 3);
+      const moved = moveLessonToPosition({ lessonId: l1.id, newPosition: 3 });
       expect(moved!.position).toBe(3);
 
       const lessons = getLessonsByModule(moduleId);
@@ -211,11 +211,11 @@ describe("lessonService", () => {
     });
 
     it("moves a lesson up (position 3 → 1)", () => {
-      const _l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const _l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const _l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      const l3 = createLesson({ moduleId, title: "L3", content: null, videoUrl: null, position: 3, durationMinutes: null });
 
-      const moved = moveLessonToPosition(l3.id, 1);
+      const moved = moveLessonToPosition({ lessonId: l3.id, newPosition: 1 });
       expect(moved!.position).toBe(1);
 
       const lessons = getLessonsByModule(moduleId);
@@ -228,22 +228,22 @@ describe("lessonService", () => {
     });
 
     it("returns lesson unchanged when moving to same position", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
-      const result = moveLessonToPosition(l1.id, 1);
+      const result = moveLessonToPosition({ lessonId: l1.id, newPosition: 1 });
       expect(result!.position).toBe(1);
     });
 
     it("returns null for non-existent lesson", () => {
-      expect(moveLessonToPosition(9999, 1)).toBeNull();
+      expect(moveLessonToPosition({ lessonId: 9999, newPosition: 1 })).toBeNull();
     });
 
     it("moves a lesson to middle position (1 → 2 of 3)", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const _l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const _l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      const _l3 = createLesson({ moduleId, title: "L3", content: null, videoUrl: null, position: 3, durationMinutes: null });
 
-      moveLessonToPosition(l1.id, 2);
+      moveLessonToPosition({ lessonId: l1.id, newPosition: 2 });
 
       const lessons = getLessonsByModule(moduleId);
       expect(lessons[0].title).toBe("L2");
@@ -255,11 +255,11 @@ describe("lessonService", () => {
     });
 
     it("moves from middle to end (2 → 3 of 3)", () => {
-      const _l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const _l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const _l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      const _l3 = createLesson({ moduleId, title: "L3", content: null, videoUrl: null, position: 3, durationMinutes: null });
 
-      moveLessonToPosition(l2.id, 3);
+      moveLessonToPosition({ lessonId: l2.id, newPosition: 3 });
 
       const lessons = getLessonsByModule(moduleId);
       expect(lessons[0].title).toBe("L1");
@@ -273,11 +273,11 @@ describe("lessonService", () => {
     it("does not affect lessons in other modules", () => {
       const mod2 = createModule(base.course.id, "Module 2", 2);
 
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const other = createLesson(mod2.id, "Other L1", null, null, 1, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const _l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      const other = createLesson({ moduleId: mod2.id, title: "Other L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
-      moveLessonToPosition(l1.id, 2);
+      moveLessonToPosition({ lessonId: l1.id, newPosition: 2 });
 
       // Other module's lesson should be untouched
       const otherLesson = getLessonById(other.id);
@@ -287,10 +287,10 @@ describe("lessonService", () => {
 
   describe("swapLessonPositions", () => {
     it("swaps positions of two lessons", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
 
-      const result = swapLessonPositions(l1.id, l2.id);
+      const result = swapLessonPositions({ lessonIdA: l1.id, lessonIdB: l2.id });
       expect(result).toBeDefined();
       expect(result!.a.position).toBe(2);
       expect(result!.b.position).toBe(1);
@@ -301,11 +301,11 @@ describe("lessonService", () => {
     });
 
     it("swaps non-adjacent lessons", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const _l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const _l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      const l3 = createLesson({ moduleId, title: "L3", content: null, videoUrl: null, position: 3, durationMinutes: null });
 
-      swapLessonPositions(l1.id, l3.id);
+      swapLessonPositions({ lessonIdA: l1.id, lessonIdB: l3.id });
 
       const lessons = getLessonsByModule(moduleId);
       expect(lessons[0].title).toBe("L3");
@@ -317,23 +317,23 @@ describe("lessonService", () => {
     });
 
     it("returns null when first lesson does not exist", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
-      expect(swapLessonPositions(9999, l1.id)).toBeNull();
+      expect(swapLessonPositions({ lessonIdA: 9999, lessonIdB: l1.id })).toBeNull();
     });
 
     it("returns null when second lesson does not exist", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
-      expect(swapLessonPositions(l1.id, 9999)).toBeNull();
+      expect(swapLessonPositions({ lessonIdA: l1.id, lessonIdB: 9999 })).toBeNull();
     });
   });
 
   describe("reorderLessons", () => {
     it("reorders lessons according to the given id array", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 2, null);
-      const l3 = createLesson(moduleId, "L3", null, null, 3, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 2, durationMinutes: null });
+      const l3 = createLesson({ moduleId, title: "L3", content: null, videoUrl: null, position: 3, durationMinutes: null });
 
       // Reverse the order: L3 → pos 1, L2 → pos 2, L1 → pos 3
       const result = reorderLessons(moduleId, [l3.id, l2.id, l1.id]);
@@ -349,8 +349,8 @@ describe("lessonService", () => {
     });
 
     it("assigns positions starting at 1 and normalizes gaps", () => {
-      const l1 = createLesson(moduleId, "L1", null, null, 10, null);
-      const l2 = createLesson(moduleId, "L2", null, null, 20, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 10, durationMinutes: null });
+      const l2 = createLesson({ moduleId, title: "L2", content: null, videoUrl: null, position: 20, durationMinutes: null });
 
       reorderLessons(moduleId, [l2.id, l1.id]);
 
@@ -362,8 +362,8 @@ describe("lessonService", () => {
     it("does not reorder lessons from a different module", () => {
       const mod2 = createModule(base.course.id, "Module 2", 2);
 
-      const l1 = createLesson(moduleId, "L1", null, null, 1, null);
-      const other = createLesson(mod2.id, "Other", null, null, 1, null);
+      const l1 = createLesson({ moduleId, title: "L1", content: null, videoUrl: null, position: 1, durationMinutes: null });
+      const other = createLesson({ moduleId: mod2.id, title: "Other", content: null, videoUrl: null, position: 1, durationMinutes: null });
 
       // Try to include a lesson from another module
       reorderLessons(moduleId, [other.id, l1.id]);

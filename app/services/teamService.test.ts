@@ -40,11 +40,11 @@ describe("teamService", () => {
   describe("addTeamMember", () => {
     it("adds a user as an admin", () => {
       const team = createTeam();
-      const member = addTeamMember(
-        team.id,
-        base.user.id,
-        schema.TeamMemberRole.Admin
-      );
+      const member = addTeamMember({
+        teamId: team.id,
+        userId: base.user.id,
+        role: schema.TeamMemberRole.Admin,
+      });
 
       expect(member).toBeDefined();
       expect(member.teamId).toBe(team.id);
@@ -54,11 +54,11 @@ describe("teamService", () => {
 
     it("adds a user as a member", () => {
       const team = createTeam();
-      const member = addTeamMember(
-        team.id,
-        base.user.id,
-        schema.TeamMemberRole.Member
-      );
+      const member = addTeamMember({
+        teamId: team.id,
+        userId: base.user.id,
+        role: schema.TeamMemberRole.Member,
+      });
 
       expect(member.role).toBe(schema.TeamMemberRole.Member);
     });
@@ -67,7 +67,7 @@ describe("teamService", () => {
   describe("getTeamForAdmin", () => {
     it("returns the team when user is an admin", () => {
       const team = createTeam();
-      addTeamMember(team.id, base.user.id, schema.TeamMemberRole.Admin);
+      addTeamMember({ teamId: team.id, userId: base.user.id, role: schema.TeamMemberRole.Admin });
 
       const found = getTeamForAdmin(base.user.id);
       expect(found).toBeDefined();
@@ -76,7 +76,7 @@ describe("teamService", () => {
 
     it("returns undefined when user is a member but not admin", () => {
       const team = createTeam();
-      addTeamMember(team.id, base.user.id, schema.TeamMemberRole.Member);
+      addTeamMember({ teamId: team.id, userId: base.user.id, role: schema.TeamMemberRole.Member });
 
       const found = getTeamForAdmin(base.user.id);
       expect(found).toBeUndefined();
@@ -123,7 +123,7 @@ describe("teamService", () => {
 
     it("returns false when user is a regular member", () => {
       const team = createTeam();
-      addTeamMember(team.id, base.user.id, schema.TeamMemberRole.Member);
+      addTeamMember({ teamId: team.id, userId: base.user.id, role: schema.TeamMemberRole.Member });
 
       expect(isTeamAdmin(base.user.id)).toBe(false);
     });
@@ -136,8 +136,8 @@ describe("teamService", () => {
   describe("getTeamMembers", () => {
     it("returns all members of a team", () => {
       const team = createTeam();
-      addTeamMember(team.id, base.user.id, schema.TeamMemberRole.Admin);
-      addTeamMember(team.id, base.instructor.id, schema.TeamMemberRole.Member);
+      addTeamMember({ teamId: team.id, userId: base.user.id, role: schema.TeamMemberRole.Admin });
+      addTeamMember({ teamId: team.id, userId: base.instructor.id, role: schema.TeamMemberRole.Member });
 
       const members = getTeamMembers(team.id);
       expect(members).toHaveLength(2);

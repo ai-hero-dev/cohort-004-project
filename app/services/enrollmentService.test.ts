@@ -35,7 +35,7 @@ describe("enrollmentService", () => {
 
   describe("enrollUser", () => {
     it("enrolls a user in a course", () => {
-      const enrollment = enrollUser(base.user.id, base.course.id, false, false);
+      const enrollment = enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       expect(enrollment).toBeDefined();
       expect(enrollment.userId).toBe(base.user.id);
@@ -45,16 +45,16 @@ describe("enrollmentService", () => {
     });
 
     it("throws when enrolling a user who is already enrolled", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       expect(() =>
-        enrollUser(base.user.id, base.course.id, false, false)
+        enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false })
       ).toThrowError("User is already enrolled in this course");
     });
 
     it("throws when enrolling in a non-existent course", () => {
       expect(() =>
-        enrollUser(base.user.id, 9999, false, false)
+        enrollUser({ userId: base.user.id, courseId: 9999, sendEmail: false, skipValidation: false })
       ).toThrowError("Course not found");
     });
 
@@ -63,29 +63,29 @@ describe("enrollmentService", () => {
       // but the DB foreign key constraint still prevents inserting invalid references.
       // Verify it doesn't throw "Course not found" (service-level) but throws FK error instead.
       expect(() =>
-        enrollUser(base.user.id, 9999, false, true)
+        enrollUser({ userId: base.user.id, courseId: 9999, sendEmail: false, skipValidation: true })
       ).toThrowError(); // FK constraint, not "Course not found"
     });
 
     it("allows duplicate enrollment when skipValidation is true", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       // Second enrollment with skipValidation — no "already enrolled" error
-      const second = enrollUser(base.user.id, base.course.id, false, true);
+      const second = enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: true });
       expect(second).toBeDefined();
     });
 
     it("accepts sendEmail parameter without error", () => {
-      const enrollment = enrollUser(base.user.id, base.course.id, true, false);
+      const enrollment = enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: true, skipValidation: false });
       expect(enrollment).toBeDefined();
     });
   });
 
   describe("unenrollUser", () => {
     it("unenrolls a user from a course", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
-      const result = unenrollUser(base.user.id, base.course.id);
+      const result = unenrollUser({ userId: base.user.id, courseId: base.course.id });
       expect(result).toBeDefined();
       expect(result!.userId).toBe(base.user.id);
       expect(result!.courseId).toBe(base.course.id);
@@ -93,49 +93,49 @@ describe("enrollmentService", () => {
 
     it("throws when unenrolling a user who is not enrolled", () => {
       expect(() =>
-        unenrollUser(base.user.id, base.course.id)
+        unenrollUser({ userId: base.user.id, courseId: base.course.id })
       ).toThrowError("User is not enrolled in this course");
     });
 
     it("removes the enrollment from the database", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
-      unenrollUser(base.user.id, base.course.id);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
+      unenrollUser({ userId: base.user.id, courseId: base.course.id });
 
-      expect(isUserEnrolled(base.user.id, base.course.id)).toBe(false);
+      expect(isUserEnrolled({ userId: base.user.id, courseId: base.course.id })).toBe(false);
     });
   });
 
   describe("findEnrollment", () => {
     it("returns the enrollment when it exists", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
-      const found = findEnrollment(base.user.id, base.course.id);
+      const found = findEnrollment({ userId: base.user.id, courseId: base.course.id });
       expect(found).toBeDefined();
       expect(found!.userId).toBe(base.user.id);
       expect(found!.courseId).toBe(base.course.id);
     });
 
     it("returns undefined when no enrollment exists", () => {
-      const found = findEnrollment(base.user.id, base.course.id);
+      const found = findEnrollment({ userId: base.user.id, courseId: base.course.id });
       expect(found).toBeUndefined();
     });
   });
 
   describe("isUserEnrolled", () => {
     it("returns true when user is enrolled", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
-      expect(isUserEnrolled(base.user.id, base.course.id)).toBe(true);
+      expect(isUserEnrolled({ userId: base.user.id, courseId: base.course.id })).toBe(true);
     });
 
     it("returns false when user is not enrolled", () => {
-      expect(isUserEnrolled(base.user.id, base.course.id)).toBe(false);
+      expect(isUserEnrolled({ userId: base.user.id, courseId: base.course.id })).toBe(false);
     });
   });
 
   describe("getEnrollmentById", () => {
     it("returns enrollment by id", () => {
-      const created = enrollUser(base.user.id, base.course.id, false, false);
+      const created = enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       const found = getEnrollmentById(created.id);
       expect(found).toBeDefined();
@@ -163,8 +163,8 @@ describe("enrollmentService", () => {
         .returning()
         .get();
 
-      enrollUser(base.user.id, base.course.id, false, false);
-      enrollUser(base.user.id, course2.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
+      enrollUser({ userId: base.user.id, courseId: course2.id, sendEmail: false, skipValidation: false });
 
       const enrollmentsList = getEnrollmentsByUser(base.user.id);
       expect(enrollmentsList).toHaveLength(2);
@@ -187,8 +187,8 @@ describe("enrollmentService", () => {
         .returning()
         .get();
 
-      enrollUser(base.user.id, base.course.id, false, false);
-      enrollUser(student2.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
+      enrollUser({ userId: student2.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       const enrollmentsList = getEnrollmentsByCourse(base.course.id);
       expect(enrollmentsList).toHaveLength(2);
@@ -201,7 +201,7 @@ describe("enrollmentService", () => {
 
   describe("getEnrollmentCountForCourse", () => {
     it("returns the count of enrollments", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       expect(getEnrollmentCountForCourse(base.course.id)).toBe(1);
     });
@@ -213,9 +213,9 @@ describe("enrollmentService", () => {
 
   describe("markEnrollmentComplete", () => {
     it("sets completedAt on the enrollment", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
-      const result = markEnrollmentComplete(base.user.id, base.course.id);
+      const result = markEnrollmentComplete({ userId: base.user.id, courseId: base.course.id });
       expect(result).toBeDefined();
       expect(result!.completedAt).toBeDefined();
       expect(result!.completedAt).not.toBeNull();
@@ -224,7 +224,7 @@ describe("enrollmentService", () => {
 
   describe("getUserEnrolledCourses", () => {
     it("returns enrolled courses with course details", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       const courses = getUserEnrolledCourses(base.user.id);
       expect(courses).toHaveLength(1);
@@ -240,7 +240,7 @@ describe("enrollmentService", () => {
 
   describe("getCourseEnrolledStudents", () => {
     it("returns enrolled students for a course", () => {
-      enrollUser(base.user.id, base.course.id, false, false);
+      enrollUser({ userId: base.user.id, courseId: base.course.id, sendEmail: false, skipValidation: false });
 
       const students = getCourseEnrolledStudents(base.course.id);
       expect(students).toHaveLength(1);
