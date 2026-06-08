@@ -18,19 +18,7 @@ Then drive the app using Playwright MCP tools (`mcp__playwright__browser_navigat
 
 ## Switching users
 
-The app has a **DevUI panel** in the bottom-right corner of every page (visible when logged in). Click "Switch user" to become any seeded user instantly — no login flow needed.
-
-| User | Role |
-|---|---|
-| Alex Rivera | Admin |
-| Sarah Chen | Instructor (has course + revenue data) |
-| Marcus Johnson | Instructor |
-| Emma Wilson | Student |
-| James Park | Student |
-| Olivia Martinez | Student |
-| Liam Thompson | Student |
-| Sophia Davis | Student |
-| Bossy McBossface | Student |
+The app has a **DevUI panel** in the bottom-right corner of every page (visible when logged in). Click "Switch user" to become any seeded user instantly — no login flow needed. Available users and their roles are shown in the dropdown.
 
 ## Cleanup
 
