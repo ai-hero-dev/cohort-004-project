@@ -1,5 +1,11 @@
 import { db } from "~/db";
-import { courses, purchases, enrollments, courseReviews } from "~/db/schema";
+import {
+  courses,
+  purchases,
+  enrollments,
+  courseReviews,
+  users,
+} from "~/db/schema";
 import { eq, and, gte, sql, desc } from "drizzle-orm";
 
 export type Period = "7d" | "30d" | "12m" | "all";
@@ -31,6 +37,15 @@ export type CourseBreakdown = {
   enrollmentCount: number;
   avgRating: number | null;
   ratingCount: number;
+};
+
+export type PlatformCourseBreakdown = CourseBreakdown & {
+  instructorName: string;
+};
+
+export type InstructorOption = {
+  id: number;
+  name: string;
 };
 
 function getPeriodCutoff(period: Period): string | null {
@@ -372,4 +387,114 @@ export function getPlatformRevenueTimeSeries(opts: {
   }
 
   return points;
+}
+
+export function getInstructorsWithCourses(): InstructorOption[] {
+  const rows = db
+    .selectDistinct({
+      id: users.id,
+      name: users.name,
+    })
+    .from(users)
+    .innerJoin(courses, eq(courses.instructorId, users.id))
+    .orderBy(users.name)
+    .all();
+
+  return rows;
+}
+
+export function getPlatformCourseBreakdowns(opts: {
+  period: Period;
+  instructorId?: number;
+}): PlatformCourseBreakdown[] {
+  const { period, instructorId } = opts;
+  const cutoff = getPeriodCutoff(period);
+
+  const courseRows = db
+    .select({
+      courseId: courses.id,
+      title: courses.title,
+      listPrice: courses.price,
+      instructorName: users.name,
+    })
+    .from(courses)
+    .innerJoin(users, eq(courses.instructorId, users.id))
+    .where(instructorId ? eq(courses.instructorId, instructorId) : undefined)
+    .all();
+
+  if (courseRows.length === 0) return [];
+
+  const courseIds = courseRows.map((c) => c.courseId);
+
+  const purchaseRows = db
+    .select({
+      courseId: purchases.courseId,
+      revenue: sql<number>`sum(${purchases.pricePaid})`,
+      salesCount: sql<number>`count(*)`,
+    })
+    .from(purchases)
+    .where(
+      and(
+        sql`${purchases.courseId} IN (${sql.join(
+          courseIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`,
+        cutoff ? gte(purchases.createdAt, cutoff) : undefined
+      )
+    )
+    .groupBy(purchases.courseId)
+    .all();
+
+  const enrollmentRows = db
+    .select({
+      courseId: enrollments.courseId,
+      enrollmentCount: sql<number>`count(*)`,
+    })
+    .from(enrollments)
+    .where(
+      and(
+        sql`${enrollments.courseId} IN (${sql.join(
+          courseIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`,
+        cutoff ? gte(enrollments.enrolledAt, cutoff) : undefined
+      )
+    )
+    .groupBy(enrollments.courseId)
+    .all();
+
+  const reviewRows = db
+    .select({
+      courseId: courseReviews.courseId,
+      avgRating: sql<number | null>`avg(${courseReviews.rating})`,
+      ratingCount: sql<number>`count(*)`,
+    })
+    .from(courseReviews)
+    .where(
+      and(
+        sql`${courseReviews.courseId} IN (${sql.join(
+          courseIds.map((id) => sql`${id}`),
+          sql`, `
+        )})`,
+        cutoff ? gte(courseReviews.createdAt, cutoff) : undefined
+      )
+    )
+    .groupBy(courseReviews.courseId)
+    .all();
+
+  const purchaseMap = new Map(purchaseRows.map((r) => [r.courseId, r]));
+  const enrollmentMap = new Map(enrollmentRows.map((r) => [r.courseId, r]));
+  const reviewMap = new Map(reviewRows.map((r) => [r.courseId, r]));
+
+  return courseRows.map((c) => ({
+    courseId: c.courseId,
+    title: c.title,
+    listPrice: c.listPrice,
+    instructorName: c.instructorName,
+    revenue: purchaseMap.get(c.courseId)?.revenue ?? 0,
+    salesCount: purchaseMap.get(c.courseId)?.salesCount ?? 0,
+    enrollmentCount: enrollmentMap.get(c.courseId)?.enrollmentCount ?? 0,
+    avgRating: reviewMap.get(c.courseId)?.avgRating ?? null,
+    ratingCount: reviewMap.get(c.courseId)?.ratingCount ?? 0,
+  }));
 }

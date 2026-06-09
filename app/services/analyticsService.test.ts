@@ -17,6 +17,8 @@ import {
   getCourseBreakdowns,
   getPlatformSummary,
   getPlatformRevenueTimeSeries,
+  getInstructorsWithCourses,
+  getPlatformCourseBreakdowns,
 } from "./analyticsService";
 
 function daysAgo(n: number): string {
@@ -1122,6 +1124,308 @@ describe("analyticsService", () => {
       expect(result.length).toBeGreaterThanOrEqual(2);
       expect(result.every((p) => /^\d{4}-\d{2}$/.test(p.date))).toBe(true);
       expect(result.some((p) => p.revenue > 0)).toBe(true);
+    });
+  });
+
+  // ─── getInstructorsWithCourses ───
+
+  describe("getInstructorsWithCourses", () => {
+    it("returns empty array when no courses exist", () => {
+      const freshDb = createTestDb();
+      testDb = freshDb;
+      const result = getInstructorsWithCourses();
+      expect(result).toEqual([]);
+    });
+
+    it("returns instructors who have courses", () => {
+      const result = getInstructorsWithCourses();
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(base.instructor.id);
+      expect(result[0].name).toBe("Test Instructor");
+    });
+
+    it("does not return instructors with no courses", () => {
+      testDb
+        .insert(schema.users)
+        .values({
+          name: "No Course Instructor",
+          email: "nocourse@example.com",
+          role: schema.UserRole.Instructor,
+        })
+        .run();
+
+      const result = getInstructorsWithCourses();
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(base.instructor.id);
+    });
+
+    it("returns multiple instructors sorted by name", () => {
+      const instructor2 = testDb
+        .insert(schema.users)
+        .values({
+          name: "Alpha Instructor",
+          email: "alpha@example.com",
+          role: schema.UserRole.Instructor,
+        })
+        .returning()
+        .get();
+
+      testDb
+        .insert(schema.courses)
+        .values({
+          title: "Second Course",
+          slug: "second-course",
+          description: "Another course",
+          instructorId: instructor2.id,
+          categoryId: base.category.id,
+          status: schema.CourseStatus.Published,
+        })
+        .run();
+
+      const result = getInstructorsWithCourses();
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("Alpha Instructor");
+      expect(result[1].name).toBe("Test Instructor");
+    });
+
+    it("does not duplicate instructors with multiple courses", () => {
+      testDb
+        .insert(schema.courses)
+        .values({
+          title: "Another Course",
+          slug: "another-course",
+          description: "Another course",
+          instructorId: base.instructor.id,
+          categoryId: base.category.id,
+          status: schema.CourseStatus.Published,
+        })
+        .run();
+
+      const result = getInstructorsWithCourses();
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  // ─── getPlatformCourseBreakdowns ───
+
+  describe("getPlatformCourseBreakdowns", () => {
+    it("returns empty array when no courses exist", () => {
+      const freshDb = createTestDb();
+      testDb = freshDb;
+      const result = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result).toEqual([]);
+    });
+
+    it("returns all courses with instructor names", () => {
+      const result = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result).toHaveLength(1);
+      expect(result[0].title).toBe("Test Course");
+      expect(result[0].instructorName).toBe("Test Instructor");
+      expect(result[0].revenue).toBe(0);
+      expect(result[0].salesCount).toBe(0);
+      expect(result[0].enrollmentCount).toBe(0);
+      expect(result[0].avgRating).toBeNull();
+    });
+
+    it("aggregates revenue and sales for courses", () => {
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 4999,
+          country: null,
+        })
+        .run();
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 2999,
+          country: null,
+        })
+        .run();
+
+      const result = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result[0].revenue).toBe(7998);
+      expect(result[0].salesCount).toBe(2);
+    });
+
+    it("counts enrollments for courses", () => {
+      testDb
+        .insert(schema.enrollments)
+        .values({ userId: base.user.id, courseId: base.course.id })
+        .run();
+
+      const result = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result[0].enrollmentCount).toBe(1);
+    });
+
+    it("calculates average rating for courses", () => {
+      const user2 = testDb
+        .insert(schema.users)
+        .values({
+          name: "User Two",
+          email: "user2@example.com",
+          role: schema.UserRole.Student,
+        })
+        .returning()
+        .get();
+
+      testDb
+        .insert(schema.courseReviews)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          rating: 5,
+        })
+        .run();
+      testDb
+        .insert(schema.courseReviews)
+        .values({
+          userId: user2.id,
+          courseId: base.course.id,
+          rating: 3,
+        })
+        .run();
+
+      const result = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result[0].avgRating).toBe(4);
+      expect(result[0].ratingCount).toBe(2);
+    });
+
+    it("respects the time period for revenue", () => {
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 5000,
+          country: null,
+          createdAt: daysAgo(3),
+        })
+        .run();
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 9999,
+          country: null,
+          createdAt: daysAgo(15),
+        })
+        .run();
+
+      const result7d = getPlatformCourseBreakdowns({ period: "7d" });
+      expect(result7d[0].revenue).toBe(5000);
+      expect(result7d[0].salesCount).toBe(1);
+
+      const result30d = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result30d[0].revenue).toBe(14999);
+      expect(result30d[0].salesCount).toBe(2);
+    });
+
+    it("filters by instructor when instructorId is provided", () => {
+      const instructor2 = testDb
+        .insert(schema.users)
+        .values({
+          name: "Second Instructor",
+          email: "instructor2@example.com",
+          role: schema.UserRole.Instructor,
+        })
+        .returning()
+        .get();
+
+      testDb
+        .insert(schema.courses)
+        .values({
+          title: "Second Course",
+          slug: "second-course",
+          description: "Another course",
+          instructorId: instructor2.id,
+          categoryId: base.category.id,
+          status: schema.CourseStatus.Published,
+        })
+        .run();
+
+      const all = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(all).toHaveLength(2);
+
+      const filtered = getPlatformCourseBreakdowns({
+        period: "30d",
+        instructorId: instructor2.id,
+      });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].title).toBe("Second Course");
+      expect(filtered[0].instructorName).toBe("Second Instructor");
+    });
+
+    it("returns empty array when filtering by instructor with no courses", () => {
+      const result = getPlatformCourseBreakdowns({
+        period: "30d",
+        instructorId: 99999,
+      });
+      expect(result).toEqual([]);
+    });
+
+    it("includes courses from multiple instructors when no filter", () => {
+      const instructor2 = testDb
+        .insert(schema.users)
+        .values({
+          name: "Second Instructor",
+          email: "instructor2@example.com",
+          role: schema.UserRole.Instructor,
+        })
+        .returning()
+        .get();
+
+      const course2 = testDb
+        .insert(schema.courses)
+        .values({
+          title: "Second Course",
+          slug: "second-course",
+          description: "Another course",
+          instructorId: instructor2.id,
+          categoryId: base.category.id,
+          status: schema.CourseStatus.Published,
+        })
+        .returning()
+        .get();
+
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: base.course.id,
+          pricePaid: 5000,
+          country: null,
+        })
+        .run();
+      testDb
+        .insert(schema.purchases)
+        .values({
+          userId: base.user.id,
+          courseId: course2.id,
+          pricePaid: 3000,
+          country: null,
+        })
+        .run();
+
+      const result = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result).toHaveLength(2);
+
+      const course1 = result.find((r) => r.courseId === base.course.id);
+      const courseTwo = result.find((r) => r.courseId === course2.id);
+      expect(course1?.revenue).toBe(5000);
+      expect(course1?.instructorName).toBe("Test Instructor");
+      expect(courseTwo?.revenue).toBe(3000);
+      expect(courseTwo?.instructorName).toBe("Second Instructor");
+    });
+
+    it("returns listPrice from course definition", () => {
+      const result = getPlatformCourseBreakdowns({ period: "30d" });
+      expect(result[0].listPrice).toBe(base.course.price);
     });
   });
 });
