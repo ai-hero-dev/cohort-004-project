@@ -1,16 +1,16 @@
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { ArrowDown, ArrowUp, ArrowUpDown, BarChart2, DollarSign, Star, Users } from "lucide-react";
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  BarChart2,
+  DollarSign,
+  Star,
+  Users,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { RevenueChart } from "~/components/revenue-chart";
 import { cn, formatPrice } from "~/lib/utils";
 import type {
   CourseBreakdown,
@@ -28,81 +28,31 @@ const PERIODS: { value: Period; label: string }[] = [
 
 type SortKey = keyof Pick<
   CourseBreakdown,
-  "title" | "listPrice" | "revenue" | "salesCount" | "enrollmentCount" | "avgRating" | "ratingCount"
+  | "title"
+  | "listPrice"
+  | "revenue"
+  | "salesCount"
+  | "enrollmentCount"
+  | "avgRating"
+  | "ratingCount"
 >;
 type SortDir = "asc" | "desc";
 
-function formatDateLabel(dateStr: string, period: Period): string {
-  if (period === "7d" || period === "30d") {
-    const [year, month, day] = dateStr.split("-").map(Number);
-    return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  }
-  const [year, month] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatYAxisTick(cents: number): string {
-  const dollars = cents / 100;
-  if (dollars >= 1000) return `$${(dollars / 1000).toFixed(1)}k`;
-  return `$${dollars.toFixed(0)}`;
-}
-
-function formatTooltipRevenue(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-function SortIndicator({ col, sortCol, sortDir }: { col: SortKey; sortCol: SortKey; sortDir: SortDir }) {
-  if (col !== sortCol) return <ArrowUpDown className="ml-1 inline size-3 opacity-40" />;
-  return sortDir === "asc"
-    ? <ArrowUp className="ml-1 inline size-3" />
-    : <ArrowDown className="ml-1 inline size-3" />;
-}
-
-const emptySubscribe = () => () => {};
-
-function RevenueChart({ data, period }: { data: RevenueDataPoint[]; period: Period }) {
-  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
-
-  if (!isClient) {
-    return <div className="h-[300px] animate-pulse rounded-md bg-muted" />;
-  }
-
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-        <XAxis
-          dataKey="date"
-          tickFormatter={(v: string) => formatDateLabel(v, period)}
-          interval="preserveStartEnd"
-          tick={{ fontSize: 11 }}
-        />
-        <YAxis tickFormatter={formatYAxisTick} tick={{ fontSize: 11 }} width={55} />
-        <Tooltip
-          formatter={(value) => [
-            typeof value === "number" ? formatTooltipRevenue(value) : "$0.00",
-            "Revenue",
-          ]}
-          labelFormatter={(v) =>
-            typeof v === "string" ? formatDateLabel(v, period) : String(v)
-          }
-        />
-        <Line
-          type="monotone"
-          dataKey="revenue"
-          stroke="hsl(var(--primary))"
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 4 }}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+function SortIndicator({
+  col,
+  sortCol,
+  sortDir,
+}: {
+  col: SortKey;
+  sortCol: SortKey;
+  sortDir: SortDir;
+}) {
+  if (col !== sortCol)
+    return <ArrowUpDown className="ml-1 inline size-3 opacity-40" />;
+  return sortDir === "asc" ? (
+    <ArrowUp className="ml-1 inline size-3" />
+  ) : (
+    <ArrowDown className="ml-1 inline size-3" />
   );
 }
 
@@ -132,7 +82,12 @@ const PERIOD_SELECTOR = (period: Period) => (
   </div>
 );
 
-export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, period }: Props) {
+export function AnalyticsDashboard({
+  summary,
+  timeSeries,
+  courseBreakdowns,
+  period,
+}: Props) {
   const [sortCol, setSortCol] = useState<SortKey>("revenue");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -152,7 +107,9 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
     if (aVal === null) return 1;
     if (bVal === null) return -1;
     if (typeof aVal === "string" && typeof bVal === "string") {
-      return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      return sortDir === "asc"
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
     }
     const diff = (aVal as number) - (bVal as number);
     return sortDir === "asc" ? diff : -diff;
@@ -220,13 +177,17 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
             <DollarSign className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(summary.totalRevenue)}</div>
+            <div className="text-2xl font-bold">
+              {formatPrice(summary.totalRevenue)}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Enrollments</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Enrollments
+            </CardTitle>
             <Users className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -236,7 +197,9 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Average Rating
+            </CardTitle>
             <Star className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -244,7 +207,8 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
               {summary.avgRating !== null ? summary.avgRating.toFixed(1) : "—"}
             </div>
             <p className="text-xs text-muted-foreground">
-              {summary.ratingCount} {summary.ratingCount === 1 ? "review" : "reviews"}
+              {summary.ratingCount}{" "}
+              {summary.ratingCount === 1 ? "review" : "reviews"}
             </p>
           </CardContent>
         </Card>
@@ -254,7 +218,9 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
       {timeSeries.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Revenue Over Time</CardTitle>
+            <CardTitle className="text-base font-medium">
+              Revenue Over Time
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <RevenueChart data={timeSeries} period={period} />
@@ -266,7 +232,9 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
       {courseBreakdowns.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Course Breakdown</CardTitle>
+            <CardTitle className="text-base font-medium">
+              Course Breakdown
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -280,21 +248,34 @@ export function AnalyticsDashboard({ summary, timeSeries, courseBreakdowns, peri
                         onClick={() => handleSort(key)}
                       >
                         {label}
-                        <SortIndicator col={key} sortCol={sortCol} sortDir={sortDir} />
+                        <SortIndicator
+                          col={key}
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {sortedCourses.map((course) => (
-                    <tr key={course.courseId} className="border-b last:border-0 hover:bg-muted/30">
+                    <tr
+                      key={course.courseId}
+                      className="border-b last:border-0 hover:bg-muted/30"
+                    >
                       <td className="px-4 py-3 font-medium">{course.title}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatPrice(course.listPrice)}</td>
-                      <td className="px-4 py-3">{formatPrice(course.revenue)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatPrice(course.listPrice)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {formatPrice(course.revenue)}
+                      </td>
                       <td className="px-4 py-3">{course.salesCount}</td>
                       <td className="px-4 py-3">{course.enrollmentCount}</td>
                       <td className="px-4 py-3">
-                        {course.avgRating !== null ? course.avgRating.toFixed(1) : "—"}
+                        {course.avgRating !== null
+                          ? course.avgRating.toFixed(1)
+                          : "—"}
                       </td>
                       <td className="px-4 py-3">{course.ratingCount}</td>
                     </tr>

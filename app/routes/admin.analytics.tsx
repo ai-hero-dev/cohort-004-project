@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { RevenueChart } from "~/components/revenue-chart";
 import { cn, formatPrice } from "~/lib/utils";
 import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
@@ -173,6 +174,20 @@ export default function AdminAnalytics({ loaderData }: Route.ComponentProps) {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Revenue over time chart */}
+            {timeSeries.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base font-medium">
+                    Revenue Over Time
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RevenueChart data={timeSeries} period={period} />
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </div>
