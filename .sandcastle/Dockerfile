@@ -22,7 +22,13 @@ ARG AGENT_UID=1000
 ARG AGENT_GID=1000
 
 # Rename the base image's "node" user to "agent" and align UID/GID.
-RUN groupmod -g $AGENT_GID node && usermod -u $AGENT_UID -g $AGENT_GID -d /home/agent -m -l agent node
+# If the target GID is already taken (e.g. macOS GID 20 = dialout in Debian),
+# delete the conflicting group first.
+RUN if getent group $AGENT_GID > /dev/null && [ "$(getent group $AGENT_GID | cut -d: -f1)" != "node" ]; then \
+      groupdel "$(getent group $AGENT_GID | cut -d: -f1)"; \
+    fi && \
+    groupmod -g $AGENT_GID node && \
+    usermod -u $AGENT_UID -g $AGENT_GID -d /home/agent -m -l agent node
 USER ${AGENT_UID}:${AGENT_GID}
 
 # Install Claude Code CLI
