@@ -50,6 +50,12 @@ export function RevenueChart({
     () => false
   );
 
+  const strokeColor = isClient
+    ? getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary")
+        .trim()
+    : "#000";
+
   if (!isClient) {
     return <div className="h-[300px] animate-pulse rounded-md bg-muted" />;
   }
@@ -80,11 +86,19 @@ export function RevenueChart({
           labelFormatter={(v) =>
             typeof v === "string" ? formatDateLabel(v, period) : String(v)
           }
+          contentStyle={{
+            backgroundColor: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "6px",
+            color: "#0f172a",
+          }}
+          itemStyle={{ color: "#0f172a" }}
+          labelStyle={{ color: "#0f172a", fontWeight: 600 }}
         />
         <Line
           type="monotone"
           dataKey="revenue"
-          stroke="hsl(var(--primary))"
+          stroke={strokeColor}
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 4 }}
