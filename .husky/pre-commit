@@ -1,3 +1,5 @@
-npx lint-staged
+#!/usr/bin/env bash
+export PATH="$HOME/.corepack/bin:$PATH"
+cd "$(git rev-parse --show-toplevel)"
 pnpm run typecheck
 pnpm run test

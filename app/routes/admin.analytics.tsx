@@ -5,6 +5,15 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import type { Route } from "./+types/admin.analytics";
 import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
@@ -33,6 +42,11 @@ const PERIODS: { value: TimePeriod; label: string }[] = [
   { value: "12m", label: "12 months" },
   { value: "all", label: "All time" },
 ];
+
+function formatChartRevenue(cents: number): string {
+  if (cents === 0) return "$0";
+  return `$${(cents / 100).toFixed(0)}`;
+}
 
 export function meta() {
   return [
@@ -71,7 +85,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function AdminAnalytics({ loaderData }: Route.ComponentProps) {
-  const { summary, period } = loaderData;
+  const { summary, timeSeries, period } = loaderData;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -133,60 +147,118 @@ export default function AdminAnalytics({ loaderData }: Route.ComponentProps) {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Revenue
-                </CardTitle>
-                <DollarSign className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatPrice(summary.totalRevenue)}
-                </div>
-              </CardContent>
-            </Card>
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Revenue
+                  </CardTitle>
+                  <DollarSign className="size-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {formatPrice(summary.totalRevenue)}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Enrollments
-                </CardTitle>
-                <Users className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {summary.totalEnrollments.toLocaleString()}
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Enrollments
+                  </CardTitle>
+                  <Users className="size-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {summary.totalEnrollments.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Top Earning Course
-                </CardTitle>
-                <Trophy className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {summary.topEarningCourse ? (
-                  <>
-                    <div className="text-2xl font-bold">
-                      {formatPrice(summary.topEarningCourse.revenue)}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Top Earning Course
+                  </CardTitle>
+                  <Trophy className="size-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  {summary.topEarningCourse ? (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {formatPrice(summary.topEarningCourse.revenue)}
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {summary.topEarningCourse.title}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="text-2xl font-bold text-muted-foreground">
+                      N/A
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {summary.topEarningCourse.title}
-                    </p>
-                  </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Revenue Over Time Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue Over Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {timeSeries.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={timeSeries}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                      />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tickFormatter={formatChartRevenue}
+                        tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={60}
+                      />
+                      <Tooltip
+                        formatter={(value) => [
+                          formatPrice(value as number),
+                          "Revenue",
+                        ]}
+                        labelFormatter={(label) => `Date: ${label}`}
+                        contentStyle={{
+                          backgroundColor: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "var(--radius)",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="var(--primary)"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 ) : (
-                  <div className="text-2xl font-bold text-muted-foreground">
-                    N/A
+                  <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                    No revenue data for this period.
                   </div>
                 )}
               </CardContent>
             </Card>
-          </div>
+          </>
         )}
       </div>
     </div>
