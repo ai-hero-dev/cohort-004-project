@@ -366,6 +366,108 @@ export function getAdminAnalyticsSummary(opts: {
   };
 }
 
+export interface AdminCourseAnalytics extends CourseAnalytics {
+  instructorName: string;
+}
+
+export interface InstructorOption {
+  id: number;
+  name: string;
+}
+
+export function getInstructorsWithCourses(): InstructorOption[] {
+  const rows = db
+    .select({
+      id: users.id,
+      name: users.name,
+    })
+    .from(users)
+    .innerJoin(courses, eq(courses.instructorId, users.id))
+    .groupBy(users.id)
+    .orderBy(users.name)
+    .all();
+
+  return rows;
+}
+
+export function getAdminPerCourseBreakdown(opts: {
+  period: TimePeriod;
+  instructorId?: number;
+}): AdminCourseAnalytics[] {
+  const { period, instructorId } = opts;
+  const startDate = getStartDate(period);
+
+  const courseFilter = instructorId
+    ? eq(courses.instructorId, instructorId)
+    : undefined;
+
+  const allCourses = db
+    .select({
+      id: courses.id,
+      title: courses.title,
+      slug: courses.slug,
+      price: courses.price,
+      instructorName: users.name,
+    })
+    .from(courses)
+    .innerJoin(users, eq(courses.instructorId, users.id))
+    .where(courseFilter)
+    .all();
+
+  if (allCourses.length === 0) return [];
+
+  return allCourses.map((course) => {
+    const purchaseWhere = startDate
+      ? sql`${purchases.courseId} = ${course.id} AND ${purchases.createdAt} >= ${startDate}`
+      : sql`${purchases.courseId} = ${course.id}`;
+
+    const revenueResult = db
+      .select({
+        revenue: sql<number>`coalesce(sum(${purchases.pricePaid}), 0)`,
+        salesCount: sql<number>`count(*)`,
+      })
+      .from(purchases)
+      .where(purchaseWhere)
+      .get();
+
+    const enrollmentWhere = startDate
+      ? sql`${enrollments.courseId} = ${course.id} AND ${enrollments.enrolledAt} >= ${startDate}`
+      : sql`${enrollments.courseId} = ${course.id}`;
+
+    const enrollmentResult = db
+      .select({ count: sql<number>`count(*)` })
+      .from(enrollments)
+      .where(enrollmentWhere)
+      .get();
+
+    const ratingWhere = startDate
+      ? sql`${courseRatings.courseId} = ${course.id} AND ${courseRatings.createdAt} >= ${startDate}`
+      : sql`${courseRatings.courseId} = ${course.id}`;
+
+    const ratingResult = db
+      .select({
+        avg: sql<number | null>`avg(${courseRatings.rating})`,
+        count: sql<number>`count(*)`,
+      })
+      .from(courseRatings)
+      .where(ratingWhere)
+      .get();
+
+    return {
+      courseId: course.id,
+      title: course.title,
+      slug: course.slug,
+      listPrice: course.price,
+      revenue: revenueResult?.revenue ?? 0,
+      salesCount: revenueResult?.salesCount ?? 0,
+      enrollmentCount: enrollmentResult?.count ?? 0,
+      averageRating: ratingResult?.avg ?? null,
+      ratingCount: ratingResult?.count ?? 0,
+      instructorName: course.instructorName,
+    };
+  });
+}
+
 export function getAdminRevenueTimeSeries(opts: {
   period: TimePeriod;
 }): RevenueDataPoint[] {
