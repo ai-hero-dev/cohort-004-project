@@ -26,7 +26,7 @@ import {
   getBestAttempt,
 } from "~/services/quizService";
 import { computeResult } from "~/services/quizScoringService";
-import { LessonProgressStatus } from "~/db/schema";
+import { LessonProgressStatus, UserRole } from "~/db/schema";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import {
@@ -55,6 +55,15 @@ import { resolveCountry } from "~/lib/country.server";
 import { checkPppAccess, COUNTRIES } from "~/lib/ppp";
 import { findPurchase } from "~/services/purchaseService";
 import { parseFormData, parseParams } from "~/lib/validation";
+import {
+  getCommentsForLesson,
+  createComment,
+  deleteComment,
+  getComment,
+} from "~/services/commentService";
+import { getUserById } from "~/services/userService";
+import { CommentSection } from "~/components/comment-section";
+import type { CommentData } from "~/components/comment-section";
 
 const lessonParamsSchema = z.object({
   slug: z.string().min(1),
@@ -191,6 +200,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     pppPurchaseCountry = pppResult.purchaseCountry;
   }
 
+  const currentUser = currentUserId ? getUserById(currentUserId) : null;
+  const canSeeComments =
+    enrolled ||
+    currentUser?.role === UserRole.Admin ||
+    currentUser?.role === UserRole.Instructor;
+  const comments = canSeeComments ? getCommentsForLesson(lessonId) : [];
+
   // Render lesson content from Markdown to HTML server-side
   const contentHtml = lesson.content
     ? await renderMarkdown(lesson.content)
@@ -281,6 +297,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    comments: comments as CommentData[],
+    currentUserRole: currentUser?.role ?? null,
+    canSeeComments,
   };
 }
 
@@ -329,6 +348,53 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
 
     return { quizResult: result };
+  }
+
+  if (intent === "post-comment") {
+    const enrolled = isUserEnrolled(currentUserId, course.id);
+    const poster = getUserById(currentUserId);
+    if (!enrolled && poster?.role === UserRole.Student) {
+      return data({ error: "You must be enrolled to comment." }, { status: 403 });
+    }
+
+    const body = formData.get("body");
+    if (!body || typeof body !== "string" || body.trim().length === 0) {
+      return data({ error: "Comment cannot be empty." }, { status: 400 });
+    }
+    if (body.length > 1000) {
+      return data({ error: "Comment too long." }, { status: 400 });
+    }
+
+    const parentIdRaw = formData.get("parentId");
+    const parentId = parentIdRaw ? Number(parentIdRaw) : undefined;
+
+    if (parentId) {
+      const parent = getComment(parentId);
+      if (!parent || parent.lessonId !== lessonId) {
+        return data({ error: "Invalid parent comment." }, { status: 400 });
+      }
+      if (parent.parentId !== null) {
+        return data({ error: "Cannot reply to a reply." }, { status: 400 });
+      }
+    }
+
+    createComment(lessonId, currentUserId, body.trim(), parentId);
+    return data({ success: true });
+  }
+
+  if (intent === "delete-comment") {
+    const commentId = Number(formData.get("commentId"));
+    if (isNaN(commentId)) {
+      return data({ error: "Invalid comment ID." }, { status: 400 });
+    }
+
+    const deleter = getUserById(currentUserId);
+    const isAdmin =
+      deleter?.role === UserRole.Admin ||
+      deleter?.role === UserRole.Instructor;
+
+    deleteComment(commentId, currentUserId, isAdmin);
+    return data({ success: true });
   }
 
   throw data("Invalid action", { status: 400 });
@@ -382,6 +448,9 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
     pppBlocked,
     pppBlockedCountry,
     pppPurchaseCountry,
+    comments,
+    currentUserRole,
+    canSeeComments,
   } = loaderData;
   const [autoplay, toggleAutoplay] = useAutoplay();
   const fetcher = useFetcher({ key: `mark-complete-${lesson.id}` });
@@ -543,6 +612,16 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
               quizResult={quizResult}
               quizFetcher={quizFetcher}
               isSubmitting={isSubmittingQuiz}
+            />
+          )}
+
+          {/* Comments */}
+          {canSeeComments && (
+            <CommentSection
+              comments={comments}
+              currentUserId={currentUserId}
+              currentUserRole={currentUserRole}
+              lessonId={lesson.id}
             />
           )}
 
