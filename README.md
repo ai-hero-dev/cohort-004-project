@@ -50,6 +50,23 @@ The app will be running at `http://localhost:5173`.
 | `pnpm reset <commit>`       | Reset your repo to a lesson checkpoint |
 | `pnpm cherry-pick <commit>` | Cherry-pick a lesson's solution        |
 
+### Optional: portless (named local URL)
+
+`pnpm dev` is unchanged and still serves at `http://localhost:5173`.
+
+`pnpm dev:portless` serves the same app at `https://cadence.localhost` — a stable named URL that survives port changes and avoids cookie/storage clashes between projects.
+
+**First run only:** portless will prompt for your password to bind port 443 and install a trusted local CA cert. This is portless doing it, not the repo. Subsequent runs are silent.
+
+`portless` is already a `devDependency` so no global install is needed.
+
+Troubleshooting:
+
+```bash
+pnpm exec portless doctor   # diagnose proxy issues
+pnpm exec portless trust    # re-trust the local CA cert
+```
+
 ## Course Structure
 
 The cohort is split across 6 days of content:
