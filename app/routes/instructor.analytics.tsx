@@ -109,7 +109,14 @@ export async function loader({ request }: Route.LoaderArgs) {
     dateRange,
   });
 
-  return { summary, courseSummaries, preset, dateRange, targetInstructorId };
+  const courseDetails = Object.fromEntries(
+    courseSummaries.map((c) => [
+      c.courseId,
+      getCourseDetail({ courseId: c.courseId, dateRange }),
+    ])
+  );
+
+  return { summary, courseSummaries, courseDetails, preset, dateRange };
 }
 
 function formatCurrency(cents: number) {
@@ -134,15 +141,9 @@ const PRESETS: { label: string; value: Preset }[] = [
   { label: "All time", value: "all" },
 ];
 
-function CourseDetailPanel({
-  courseId,
-  dateRange,
-}: {
-  courseId: number;
-  dateRange: { from: string; to: string };
-}) {
-  const detail = getCourseDetail({ courseId, dateRange });
+type CourseDetail = ReturnType<typeof getCourseDetail>;
 
+function CourseDetailPanel({ detail }: { detail: CourseDetail }) {
   const hasRevenueData = detail.revenueTimeSeries.length > 0;
   const hasMonthlyData = detail.monthlyRevenue.length > 0;
   const hasEnrollmentData = detail.enrollmentsOverTime.length > 0;
@@ -278,7 +279,7 @@ function CourseDetailPanel({
 }
 
 export default function InstructorAnalytics({ loaderData }: Route.ComponentProps) {
-  const { summary, courseSummaries, preset, dateRange } = loaderData;
+  const { summary, courseSummaries, courseDetails, preset } = loaderData;
   const [expandedCourseId, setExpandedCourseId] = useState<number | null>(null);
   const navigate = useNavigate();
 
@@ -317,7 +318,6 @@ export default function InstructorAnalytics({ loaderData }: Route.ComponentProps
         </div>
       </div>
 
-      {/* Summary row */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {[
           { label: "Total Revenue", value: formatCurrency(summary.totalRevenue) },
@@ -333,7 +333,6 @@ export default function InstructorAnalytics({ loaderData }: Route.ComponentProps
         ))}
       </div>
 
-      {/* Per-course table */}
       {courseSummaries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <BarChart2 className="mb-4 size-12 text-muted-foreground/50" />
@@ -358,6 +357,7 @@ export default function InstructorAnalytics({ loaderData }: Route.ComponentProps
             <tbody>
               {courseSummaries.map((course) => {
                 const isExpanded = expandedCourseId === course.courseId;
+                const detail = courseDetails[course.courseId];
                 return (
                   <>
                     <tr
@@ -388,13 +388,10 @@ export default function InstructorAnalytics({ loaderData }: Route.ComponentProps
                         {formatPercent(course.completionRate)}
                       </td>
                     </tr>
-                    {isExpanded && (
+                    {isExpanded && detail && (
                       <tr key={`${course.courseId}-detail`}>
                         <td colSpan={6} className="p-0">
-                          <CourseDetailPanel
-                            courseId={course.courseId}
-                            dateRange={dateRange}
-                          />
+                          <CourseDetailPanel detail={detail} />
                         </td>
                       </tr>
                     )}
