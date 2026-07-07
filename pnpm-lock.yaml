@@ -102,6 +102,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.8
+      portless:
+        specifier: ^0.15.0
+        version: 0.15.0
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
@@ -3334,6 +3337,12 @@ packages:
 
   pkg-types@2.3.0:
     resolution: {integrity: sha512-SIqCzDRg0s9npO5XQ3tNZioRY1uK06lA41ynBC1YmFTmnY6FjUjVt6s4LoADmwoig1qqD0oK8h1p/8mlMx8Oig==}
+
+  portless@0.15.0:
+    resolution: {integrity: sha512-GCrWz4GFPe4vbkGmDvXK78bGaKrVnIN2H6De3kAtoCfv1+CddaUaqPmA/hBzxQjGHbj+MpQMJEQ187tVqMtw2Q==}
+    engines: {node: '>=24'}
+    os: [darwin, linux, win32]
+    hasBin: true
 
   postcss-selector-parser@6.0.10:
     resolution: {integrity: sha512-IQ7TZdoaqbT+LCpShg46jnZVlhWD2w6iQYAcYXfHARZ7X1t/UGhhceQDs5X0cGqKvYlHNOuv7Oa1xmb0oQuA3w==}
@@ -7087,6 +7096,8 @@ snapshots:
       confbox: 0.2.4
       exsolve: 1.0.8
       pathe: 2.0.3
+
+  portless@0.15.0: {}
 
   postcss-selector-parser@6.0.10:
     dependencies:
