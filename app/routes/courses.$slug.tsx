@@ -37,11 +37,16 @@ import {
 } from "lucide-react";
 import { CourseImage } from "~/components/course-image";
 import { UserAvatar } from "~/components/user-avatar";
+import { StarRating, RatableStars } from "~/components/star-rating";
 import { data, isRouteErrorResponse } from "react-router";
 import { formatDuration, formatPrice } from "~/lib/utils";
 import { renderMarkdown } from "~/lib/markdown.server";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice, getCountryTierInfo } from "~/lib/ppp";
+import {
+  findReview,
+  getAverageRatingForCourse,
+} from "~/services/courseReviewService";
 
 export function meta({ data: loaderData }: Route.MetaArgs) {
   const title = loaderData?.course?.title ?? "Course";
@@ -71,6 +76,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   let progress = 0;
   let lessonProgressMap: Record<number, string> = {};
   let nextLessonId: number | null = null;
+  let userRating: number | null = null;
 
   if (currentUserId) {
     enrolled = isUserEnrolled(currentUserId, course.id);
@@ -88,8 +94,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
       const nextLesson = getNextIncompleteLesson(currentUserId, course.id);
       nextLessonId = nextLesson?.id ?? null;
+
+      userRating = findReview(currentUserId, course.id)?.rating ?? null;
     }
   }
+
+  const { average: averageRating, count: reviewCount } =
+    getAverageRatingForCourse(course.id);
 
   // Render sales copy from Markdown to HTML server-side
   const salesCopyHtml = courseWithDetails.salesCopy
@@ -113,6 +124,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating,
+    reviewCount,
+    userRating,
   };
 }
 
@@ -181,6 +195,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
     currentUserId,
     pppPrice,
     tierInfo,
+    averageRating,
+    reviewCount,
+    userRating,
   } = loaderData;
   const isInstructor = currentUserId === course.instructorId;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -320,6 +337,7 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
               {formatDuration(totalDuration, true, false, false)} total
             </span>
           )}
+          <StarRating rating={averageRating} count={reviewCount} size="sm" />
         </div>
       </div>
 
@@ -389,6 +407,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
                       className="h-full rounded-full bg-primary transition-all"
                       style={{ width: `${progress}%` }}
                     />
+                  </div>
+                  <div className="mb-4">
+                    <RatableStars courseId={course.id} initialRating={userRating} />
                   </div>
                   {course.modules.length > 0 &&
                     (() => {
