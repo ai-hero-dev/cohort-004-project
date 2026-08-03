@@ -9,10 +9,12 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { AlertTriangle, BookOpen, Search } from "lucide-react";
 import { CourseImage } from "~/components/course-image";
 import { UserAvatar } from "~/components/user-avatar";
+import { StarRating } from "~/components/star-rating";
 import { getCurrentUserId } from "~/lib/session";
 import { formatPrice } from "~/lib/utils";
 import { getUserEnrolledCourses } from "~/services/enrollmentService";
 import { calculateProgress, getCompletedLessonCount } from "~/services/progressService";
+import { getAverageRatingsForCourses } from "~/services/courseReviewService";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice } from "~/lib/ppp";
 
@@ -55,17 +57,22 @@ export async function loader({ request }: Route.LoaderArgs) {
     }
   }
 
+  const ratingsMap = getAverageRatingsForCourses(courses.map((c) => c.id));
+
   const coursesWithLessonCount = courses.map((course) => {
     const userProgress = progressMap.get(course.id);
     const pppPrice = course.pppEnabled
       ? calculatePppPrice(course.price, country)
       : course.price;
+    const rating = ratingsMap.get(course.id);
     return {
       ...course,
       lessonCount: getLessonCountForCourse(course.id),
       progress: userProgress?.progress ?? null,
       completedLessons: userProgress?.completedLessons ?? null,
       pppPrice,
+      averageRating: rating?.average ?? 0,
+      reviewCount: rating?.count ?? 0,
     };
   });
 
@@ -209,6 +216,13 @@ export default function CourseCatalog({ loaderData }: Route.ComponentProps) {
                   <p className="line-clamp-2 text-sm text-muted-foreground">
                     {course.description}
                   </p>
+                  <div className="mt-2">
+                    <StarRating
+                      rating={course.averageRating}
+                      count={course.reviewCount}
+                      size="sm"
+                    />
+                  </div>
                 </CardContent>
                 {course.progress !== null && course.progress > 0 && (
                   <CardContent className="pt-0">

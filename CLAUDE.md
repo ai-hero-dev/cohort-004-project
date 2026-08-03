@@ -1,0 +1,2 @@
+Coding standards for this repo (TypeScript conventions, database schema rules, backend routing/services/validation/auth patterns, frontend conventions, and testing requirements) live in the `coding-standards` skill — see `.claude/skills/coding-standards/SKILL.md`.
+  
