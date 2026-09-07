@@ -26,6 +26,15 @@ This is a full-stack course platform (think a mini Udemy) built with React Route
 # Install dependencies
 pnpm install
 
+# Using the latest node-lts v24.20.0 and pnpm@9.12.3 when running the above command you will get this Error
+# Error: ERR_PNPM_IGNORED_BUILDS
+
+#  × installing dependencies
+#  ╰─▶ Ignored build scripts: better-sqlite3@12.11.1, esbuild@0.18.20, esbuild@0.25.12, esbuild@0.28.2, msw@2.15.0
+#  help: Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+
+#  run pnpm approve-builds so that the db:migrate can be executed successfully, otherwise it will fail.
+
 # Run database migrations and seed data
 pnpm db:migrate
 pnpm db:seed
