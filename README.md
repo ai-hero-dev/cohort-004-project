@@ -33,7 +33,8 @@ pnpm install
 #  ╰─▶ Ignored build scripts: better-sqlite3@12.11.1, esbuild@0.18.20, esbuild@0.25.12, esbuild@0.28.2, msw@2.15.0
 #  help: Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
 
-#  run pnpm approve-builds so that the db:migrate can be executed successfully, otherwise it will fail.
+#  run pnpm approve-builds, checking all three build scripts, so that the db:migrate can be executed successfully
+#  otherwise it will fail.
 
 # Run database migrations and seed data
 pnpm db:migrate
